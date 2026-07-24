@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cangjie-skill.dev/schemas/pipeline-state.schema.json",
+  "title": "Cangjie pipeline state",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["run_id", "pipeline_version", "source_hash", "stage", "status", "completed_tasks", "pending_tasks", "artifacts"],
+  "properties": {
+    "run_id": {"type": "string", "minLength": 4},
+    "pipeline_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "source_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "stage": {"type": "string", "minLength": 2},
+    "status": {"enum": ["pending", "running", "blocked", "completed", "failed"]},
+    "completed_tasks": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "pending_tasks": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "artifacts": {"type": "object", "additionalProperties": {"type": "string"}},
+    "model_runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["task", "model", "prompt_version", "status"],
+        "properties": {
+          "task": {"type": "string"},
+          "model": {"type": "string"},
+          "prompt_version": {"type": "string"},
+          "status": {"enum": ["pending", "success", "failed"]}
+        }
+      }
+    }
+  }
+}
