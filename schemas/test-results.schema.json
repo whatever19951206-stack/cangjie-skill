@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cangjie-skill.dev/schemas/test-results.schema.json",
+  "title": "Cangjie executed test results",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["skill", "generated_at", "execution_mode", "tests", "summary"],
+  "properties": {
+    "skill": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "execution_mode": {"enum": ["independent-agent", "main-agent-fallback", "manual"]},
+    "tests": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "type", "passed", "actual_behavior", "rationale"],
+        "properties": {
+          "id": {"type": "string", "minLength": 3},
+          "type": {"enum": ["should_trigger", "should_not_trigger", "edge_case"]},
+          "passed": {"type": "boolean"},
+          "actual_behavior": {"type": "string", "minLength": 2},
+          "rationale": {"type": "string", "minLength": 2}
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "passed", "failed", "pass_rate", "all_negative_passed", "status"],
+      "properties": {
+        "total": {"type": "integer", "minimum": 1},
+        "passed": {"type": "integer", "minimum": 0},
+        "failed": {"type": "integer", "minimum": 0},
+        "pass_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "all_negative_passed": {"type": "boolean"},
+        "status": {"enum": ["passed", "failed"]}
+      }
+    }
+  }
+}
