@@ -16,7 +16,7 @@
 - [x] 为旧产物提供保守迁移脚本
 - [x] 对齐人类模板、测试模板与机器门禁
 
-## P1：证明 Skill 确实带来提升（本分支）
+## P1：证明 Skill 确实带来提升
 
 - [x] 路由、执行、忠实度三套评测分离
 - [x] 同一个模型 baseline 与加载 Skill 后的公平 A/B 合同
@@ -27,9 +27,21 @@
 - [x] JSONL Schema、示例、模板和单元测试
 - [x] CI 中运行示例 uplift gate
 
-## P2：降低使用与运行成本
+## P2：降低使用与运行成本（本分支）
 
-- [ ] `scan / standard / audit` 三档模式
-- [ ] Map-Reduce 提取，避免五个 Agent 重复阅读全文
-- [ ] 增量缓存和状态恢复
-- [ ] CLI 与 Claude、Cursor、Codex、Generic 导出器
+- [x] `scan / standard / audit` 三档模式
+- [x] 稳定文本分块与 source hash 保护
+- [x] Map-Reduce 提取，避免五个 Agent 重复阅读全文
+- [x] 确定性 cache key、artifact 检查和增量续跑
+- [x] project / extraction-plan Schema
+- [x] `init / chunk / plan / record-task / status / validate / export` CLI
+- [x] Generic / Claude / Cursor / Codex staging exporters
+- [x] 导出 manifest 与文件哈希
+- [x] 自动测试和 CI 失败日志 artifact
+
+## 后续可选增强
+
+- [ ] 接入具体模型供应商的执行 adapter
+- [ ] 评审员一致性统计与人工抽检 UI
+- [ ] 真正私有的 hidden-set 托管集成
+- [ ] 大规模批处理、成本预算和并发调度
