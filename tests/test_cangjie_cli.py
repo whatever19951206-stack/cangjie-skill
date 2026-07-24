@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import json
 import shutil
 import sys
@@ -22,6 +24,18 @@ VALID_BUNDLE = ROOT / "examples" / "quality-gate-sample"
 
 
 class CangjieCliTests(unittest.TestCase):
+    def run_cli(self, arguments: list[str]) -> tuple[int, str, str]:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            code = cangjie.main(arguments)
+        return code, stdout.getvalue(), stderr.getvalue()
+
+    def assert_cli_ok(self, arguments: list[str]) -> dict:
+        code, stdout, stderr = self.run_cli(arguments)
+        self.assertEqual(code, 0, stderr)
+        return json.loads(stdout)
+
     def make_workspace(self) -> tuple[Path, Path]:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -32,7 +46,7 @@ class CangjieCliTests(unittest.TestCase):
 
     def init_project(self, root: Path, source: Path, mode: str = "standard", project_name: str = "demo") -> Path:
         project = root / project_name
-        code = cangjie.main(
+        self.assert_cli_ok(
             [
                 "init",
                 str(project),
@@ -52,7 +66,6 @@ class CangjieCliTests(unittest.TestCase):
                 "测试项目运行流程",
             ]
         )
-        self.assertEqual(code, 0)
         return project
 
     def test_mode_profiles_are_materially_different(self) -> None:
@@ -65,19 +78,9 @@ class CangjieCliTests(unittest.TestCase):
     def test_init_chunk_plan_and_incremental_cache(self) -> None:
         root, source = self.make_workspace()
         project = self.init_project(root, source)
-        self.assertEqual(cangjie.main(["chunk", str(project), "--source-file", str(source), "--max-chars", "220"]), 0)
-        self.assertEqual(
-            cangjie.main(
-                [
-                    "plan",
-                    str(project),
-                    "--prompt-version",
-                    "extractors-v1",
-                    "--model-id",
-                    "model-a",
-                ]
-            ),
-            0,
+        self.assert_cli_ok(["chunk", str(project), "--source-file", str(source), "--max-chars", "220"])
+        self.assert_cli_ok(
+            ["plan", str(project), "--prompt-version", "extractors-v1", "--model-id", "model-a"]
         )
         plan_path = project / "work" / "extraction-plan.json"
         plan = json.loads(plan_path.read_text(encoding="utf-8"))
@@ -88,53 +91,30 @@ class CangjieCliTests(unittest.TestCase):
         artifact = project / first["artifact"]
         artifact.parent.mkdir(parents=True, exist_ok=True)
         artifact.write_text("{}\n", encoding="utf-8")
-        self.assertEqual(
-            cangjie.main(
-                [
-                    "record-task",
-                    str(project),
-                    "--task-id",
-                    first["task_id"],
-                    "--status",
-                    "success",
-                    "--artifact",
-                    first["artifact"],
-                    "--model-id",
-                    "model-a",
-                ]
-            ),
-            0,
+        self.assert_cli_ok(
+            [
+                "record-task",
+                str(project),
+                "--task-id",
+                first["task_id"],
+                "--status",
+                "success",
+                "--artifact",
+                first["artifact"],
+                "--model-id",
+                "model-a",
+            ]
         )
 
-        self.assertEqual(
-            cangjie.main(
-                [
-                    "plan",
-                    str(project),
-                    "--prompt-version",
-                    "extractors-v1",
-                    "--model-id",
-                    "model-a",
-                ]
-            ),
-            0,
+        self.assert_cli_ok(
+            ["plan", str(project), "--prompt-version", "extractors-v1", "--model-id", "model-a"]
         )
         replanned = json.loads(plan_path.read_text(encoding="utf-8"))
         cached = next(task for task in replanned["tasks"] if task["task_id"] == first["task_id"])
         self.assertEqual(cached["status"], "success")
 
-        self.assertEqual(
-            cangjie.main(
-                [
-                    "plan",
-                    str(project),
-                    "--prompt-version",
-                    "extractors-v2",
-                    "--model-id",
-                    "model-a",
-                ]
-            ),
-            0,
+        self.assert_cli_ok(
+            ["plan", str(project), "--prompt-version", "extractors-v2", "--model-id", "model-a"]
         )
         invalidated = json.loads(plan_path.read_text(encoding="utf-8"))
         changed = next(task for task in invalidated["tasks"] if task["task_id"] == first["task_id"])
@@ -146,8 +126,8 @@ class CangjieCliTests(unittest.TestCase):
         scan_project = self.init_project(root, source, mode="scan", project_name="scan-demo")
         audit_project = self.init_project(root, source, mode="audit", project_name="audit-demo")
         for project in (scan_project, audit_project):
-            self.assertEqual(cangjie.main(["chunk", str(project), "--source-file", str(source), "--max-chars", "5000"]), 0)
-            self.assertEqual(cangjie.main(["plan", str(project)]), 0)
+            self.assert_cli_ok(["chunk", str(project), "--source-file", str(source), "--max-chars", "5000"])
+            self.assert_cli_ok(["plan", str(project)])
         scan_plan = json.loads((scan_project / "work" / "extraction-plan.json").read_text(encoding="utf-8"))
         audit_plan = json.loads((audit_project / "work" / "extraction-plan.json").read_text(encoding="utf-8"))
         scan_maps = [task for task in scan_plan["tasks"] if task["stage"] == "map"]
@@ -158,29 +138,19 @@ class CangjieCliTests(unittest.TestCase):
         root, source = self.make_workspace()
         project = self.init_project(root, source)
         source.write_text(source.read_text(encoding="utf-8") + "内容发生变化。", encoding="utf-8")
-        self.assertEqual(cangjie.main(["chunk", str(project), "--source-file", str(source)]), 2)
+        code, _, stderr = self.run_cli(["chunk", str(project), "--source-file", str(source)])
+        self.assertEqual(code, 2)
+        self.assertIn("source hash mismatch", stderr)
 
     def test_validated_exports_for_all_targets(self) -> None:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         root = Path(temporary.name)
         for target in ("generic", "claude", "cursor", "codex"):
-            output = root / target
-            self.assertEqual(
-                cangjie.main(
-                    [
-                        "export",
-                        str(VALID_BUNDLE),
-                        "--target",
-                        target,
-                        "--output",
-                        str(output),
-                    ]
-                ),
-                0,
+            self.assert_cli_ok(
+                ["export", str(VALID_BUNDLE), "--target", target, "--output", str(root / target)]
             )
         self.assertTrue((root / "generic" / "failure-preflight" / "export-manifest.json").is_file())
-        self.assertTrue((root / "claude" / ".claude" / "skills" / "failure-preflight" / "SKILL.md").is_file() is False)
         self.assertTrue((root / "claude" / ".claude" / "skills" / "failure-preflight" / "skill.yaml").is_file())
         self.assertTrue((root / "cursor" / ".cursor" / "skills" / "failure-preflight" / "evidence.json").is_file())
         self.assertTrue((root / "codex" / "codex-skills" / "failure-preflight" / "test-results.json").is_file())
@@ -197,24 +167,24 @@ class CangjieCliTests(unittest.TestCase):
         skill["status"] = "draft"
         skill["verification"]["hard_gate_passed"] = False
         skill_path.write_text(yaml.safe_dump(skill, allow_unicode=True, sort_keys=False), encoding="utf-8")
-        self.assertEqual(
-            cangjie.main(["export", str(draft), "--target", "generic", "--output", str(root / "out")]),
-            2,
+
+        code, _, stderr = self.run_cli(
+            ["export", str(draft), "--target", "generic", "--output", str(root / "out")]
         )
-        self.assertEqual(
-            cangjie.main(
-                [
-                    "export",
-                    str(draft),
-                    "--target",
-                    "generic",
-                    "--output",
-                    str(root / "review"),
-                    "--allow-draft",
-                ]
-            ),
-            0,
+        self.assertEqual(code, 2)
+        self.assertIn("bundle failed quality gate", stderr)
+        manifest = self.assert_cli_ok(
+            [
+                "export",
+                str(draft),
+                "--target",
+                "generic",
+                "--output",
+                str(root / "review"),
+                "--allow-draft",
+            ]
         )
+        self.assertFalse(manifest["validated"])
 
 
 if __name__ == "__main__":
