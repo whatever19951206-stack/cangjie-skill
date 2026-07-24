@@ -7,8 +7,10 @@ on:
       - "schemas/**"
       - "scripts/quality_gate.py"
       - "scripts/migrate_legacy_skill.py"
+      - "scripts/evaluate_skill.py"
       - "templates/**"
       - "methodology/08-machine-quality-gates.md"
+      - "methodology/09-effect-evaluation.md"
       - "docs/**"
       - "examples/**"
       - "tests/**"
@@ -21,8 +23,10 @@ on:
       - "schemas/**"
       - "scripts/quality_gate.py"
       - "scripts/migrate_legacy_skill.py"
+      - "scripts/evaluate_skill.py"
       - "templates/**"
       - "methodology/08-machine-quality-gates.md"
+      - "methodology/09-effect-evaluation.md"
       - "docs/**"
       - "examples/**"
       - "tests/**"
@@ -50,8 +54,18 @@ jobs:
       - name: Install quality dependencies
         run: python -m pip install -r requirements-quality.txt
 
-      - name: Run validator and migration unit tests
+      - name: Run all unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
 
       - name: Validate all machine-readable bundles
         run: python scripts/quality_gate.py --all
+
+      - name: Run example baseline-vs-skill evaluation
+        run: |
+          python scripts/evaluate_skill.py \
+            --cases examples/evaluation-harness/cases.jsonl \
+            --results examples/evaluation-harness/results.jsonl \
+            --output /tmp/cangjie-eval-report.json \
+            --markdown-output /tmp/cangjie-eval-report.md \
+            --minimum-uplift 0.5 \
+            --fail-on-regression

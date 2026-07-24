@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cangjie-skill.dev/schemas/eval-case.schema.json",
+  "title": "Cangjie evaluation case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "suite", "prompt", "expected"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{2,79}$"},
+    "suite": {"enum": ["routing", "execution", "faithfulness"]},
+    "prompt": {"type": "string", "minLength": 4},
+    "visibility": {"enum": ["public", "hidden"]},
+    "tags": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "expected": {"type": "object"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"suite": {"const": "routing"}}},
+      "then": {
+        "properties": {
+          "expected": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["expected_skill"],
+            "properties": {
+              "expected_skill": {
+                "type": ["string", "null"],
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              "candidate_skills": {
+                "type": "array",
+                "items": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+                "uniqueItems": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"suite": {"const": "execution"}}},
+      "then": {
+        "properties": {
+          "expected": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["rubric"],
+            "properties": {
+              "rubric": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["id", "weight", "description"],
+                  "properties": {
+                    "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+                    "weight": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+                    "description": {"type": "string", "minLength": 4}
+                  }
+                }
+              },
+              "minimum_score": {"type": "number", "minimum": 0, "maximum": 1}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"suite": {"const": "faithfulness"}}},
+      "then": {
+        "properties": {
+          "expected": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["allowed_evidence_refs", "max_unsupported_claims", "max_citation_errors"],
+            "properties": {
+              "allowed_evidence_refs": {
+                "type": "array",
+                "minItems": 1,
+                "items": {"type": "string", "pattern": "^ev_[a-zA-Z0-9_-]+$"},
+                "uniqueItems": true
+              },
+              "max_unsupported_claims": {"type": "integer", "minimum": 0},
+              "max_citation_errors": {"type": "integer", "minimum": 0},
+              "minimum_score": {"type": "number", "minimum": 0, "maximum": 1}
+            }
+          }
+        }
+      }
+    }
+  ]
+}

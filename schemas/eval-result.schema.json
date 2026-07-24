@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cangjie-skill.dev/schemas/eval-result.schema.json",
+  "title": "Cangjie evaluated response result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "suite", "condition", "model_id", "evaluator_id", "response_sha256"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{2,79}$"},
+    "suite": {"enum": ["routing", "execution", "faithfulness"]},
+    "condition": {"enum": ["baseline", "skill"]},
+    "model_id": {"type": "string", "minLength": 1},
+    "evaluator_id": {"type": "string", "minLength": 1},
+    "response_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "selected_skill": {
+      "type": ["string", "null"],
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "rubric_scores": {
+      "type": "object",
+      "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}
+    },
+    "faithfulness_score": {"type": "number", "minimum": 0, "maximum": 1},
+    "supported_claims": {"type": "integer", "minimum": 0},
+    "unsupported_claims": {"type": "integer", "minimum": 0},
+    "citation_errors": {"type": "integer", "minimum": 0},
+    "used_evidence_refs": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^ev_[a-zA-Z0-9_-]+$"},
+      "uniqueItems": true
+    },
+    "notes": {"type": "string"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"suite": {"const": "routing"}}},
+      "then": {"required": ["selected_skill"]}
+    },
+    {
+      "if": {"properties": {"suite": {"const": "execution"}}},
+      "then": {"required": ["rubric_scores"]}
+    },
+    {
+      "if": {"properties": {"suite": {"const": "faithfulness"}}},
+      "then": {
+        "required": [
+          "faithfulness_score",
+          "supported_claims",
+          "unsupported_claims",
+          "citation_errors",
+          "used_evidence_refs"
+        ]
+      }
+    }
+  ]
+}
