@@ -120,6 +120,10 @@ class CangjieCliTests(unittest.TestCase):
         changed = next(task for task in invalidated["tasks"] if task["task_id"] == first["task_id"])
         self.assertEqual(changed["status"], "pending")
         self.assertNotEqual(changed["cache_key"], first["cache_key"])
+        state = json.loads((project / "pipeline-state.json").read_text(encoding="utf-8"))
+        self.assertIn(first["task_id"], state["pending_tasks"])
+        self.assertNotIn(first["task_id"], state["completed_tasks"])
+        self.assertFalse(set(state["completed_tasks"]) & set(state["pending_tasks"]))
 
     def test_scan_plan_uses_fewer_map_tasks(self) -> None:
         root, source = self.make_workspace()
