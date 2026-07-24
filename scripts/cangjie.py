@@ -475,11 +475,19 @@ def build_extraction_plan(args: argparse.Namespace) -> dict[str, Any]:
     atomic_write_json(plan_path, plan)
 
     prior_completed = set(state["completed_tasks"])
+    non_plan_completed = {
+        task_id
+        for task_id in prior_completed
+        if not task_id.startswith(("map.", "reduce.", "merge.", "verify."))
+    }
     cached_completed = {task["task_id"] for task in tasks if task["status"] == "success"}
+    pending_tasks = [task["task_id"] for task in tasks if task["status"] != "success"]
     state["stage"] = "extraction-planned"
     state["status"] = "pending"
-    state["completed_tasks"] = sorted(prior_completed | cached_completed | {"build_extraction_plan"})
-    state["pending_tasks"] = [task["task_id"] for task in tasks if task["status"] != "success"]
+    state["completed_tasks"] = sorted(
+        non_plan_completed | cached_completed | {"build_extraction_plan"}
+    )
+    state["pending_tasks"] = pending_tasks
     state["artifacts"]["extraction_plan"] = str(plan_path.relative_to(project_dir))
     save_state(project_dir, state)
     return {
