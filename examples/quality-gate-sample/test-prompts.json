@@ -1,0 +1,53 @@
+{
+  "skill": "failure-preflight",
+  "version": "1.0.0",
+  "source_book": "质量门禁演示材料 — Cangjie Maintainers",
+  "darwin_compatible": true,
+  "test_cases": [
+    {
+      "id": "should-trigger-01",
+      "type": "should_trigger",
+      "prompt": "我们准备和唯一供应商签三年排他协议，价格很好，但我担心遗漏致命问题。",
+      "expected_behavior": "应调用 failure-preflight，并先定义不可接受的失败结果",
+      "notes": "质量门禁示例"
+    },
+    {
+      "id": "should-trigger-02",
+      "type": "should_trigger",
+      "prompt": "这个系统迁移一旦开始就很难回滚，帮我看看可能怎么失败。",
+      "expected_behavior": "应调用 failure-preflight，系统列出失败路径",
+      "notes": "质量门禁示例"
+    },
+    {
+      "id": "should-trigger-03",
+      "type": "should_trigger",
+      "prompt": "董事会都在谈收益，我想先弄清这个收购最坏会怎么崩。",
+      "expected_behavior": "应调用 failure-preflight，并转化为预防动作",
+      "notes": "质量门禁示例"
+    },
+    {
+      "id": "should-not-trigger-01",
+      "type": "should_not_trigger",
+      "prompt": "这个仓库用的是什么开源许可证？",
+      "expected_behavior": "不应调用决策 Skill，应直接回答事实问题",
+      "notes": "质量门禁示例"
+    },
+    {
+      "id": "should-not-trigger-02",
+      "type": "should_not_trigger",
+      "prompt": "方案已经定了，请按现有清单逐项检查有没有漏填。",
+      "expected_behavior": "不应调用本 Skill，应优先调用 checklist-review",
+      "sibling_skill": "checklist-review",
+      "notes": "质量门禁示例"
+    },
+    {
+      "id": "edge-01",
+      "type": "edge_case",
+      "prompt": "今晚吃什么？我有三个选项。",
+      "expected_behavior": "通常不调用，因为选择成本低且容易撤销",
+      "notes": "质量门禁示例"
+    }
+  ],
+  "minimum_pass_rate": 0.8,
+  "notes": "示例覆盖正面、负面、兄弟 Skill 混淆和边界场景。"
+}
