@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Cangjie project CLI for modes, Map-Reduce planning, resume, and export.
 
-This CLI intentionally does not embed a model provider. It creates deterministic
-work plans and machine state that any capable agent/runtime can execute, while
-reusing the P0 quality gate and P1 evaluation harness for validation.
+The CLI intentionally does not embed a model provider. It creates deterministic
+plans and machine state that any agent runtime can execute, while reusing the P0
+quality gate and P1 evaluation harness.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 import shutil
 import sys
 import uuid
@@ -27,6 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_DIR = ROOT / "schemas"
 PIPELINE_VERSION = "2.0.0"
 EXTRACTORS = ("framework", "principle", "case", "counter-example", "glossary")
+SHA256_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 MODE_PROFILES: dict[str, dict[str, Any]] = {
     "scan": {
@@ -186,8 +188,9 @@ def load_state(project_dir: Path) -> dict[str, Any]:
 
 def save_state(project_dir: Path, state: dict[str, Any]) -> None:
     state["updated_at"] = now_iso()
-    validate_schema(state, "pipeline-state.schema.json", str(project_paths(project_dir)["state"]))
-    atomic_write_json(project_paths(project_dir)["state"], state)
+    path = project_paths(project_dir)["state"]
+    validate_schema(state, "pipeline-state.schema.json", str(path))
+    atomic_write_json(path, state)
 
 
 def init_project(args: argparse.Namespace) -> dict[str, Any]:
@@ -203,10 +206,12 @@ def init_project(args: argparse.Namespace) -> dict[str, Any]:
         source_hash = sha256_file(source_file)
     else:
         source_hash = args.source_hash
+    if not isinstance(source_hash, str) or not SHA256_PATTERN.fullmatch(source_hash):
+        raise CangjieError("source hash must use sha256:<64 lowercase hex>")
 
     profile = MODE_PROFILES[args.mode]
     timestamp = now_iso()
-    project = {
+    project: dict[str, Any] = {
         "schema_version": "1.0",
         "project_id": args.project_id,
         "mode": args.mode,
@@ -260,24 +265,28 @@ def init_project(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def split_text(text: str, max_chars: int) -> list[tuple[int, int, str]]:
+    if not text:
+        raise CangjieError("source text is empty")
     if max_chars < 200:
         raise CangjieError("--max-chars must be at least 200")
     chunks: list[tuple[int, int, str]] = []
     start = 0
-    length = len(text)
-    while start < length:
-        hard_end = min(length, start + max_chars)
+    while start < len(text):
+        hard_end = min(len(text), start + max_chars)
         end = hard_end
-        if hard_end < length:
+        if hard_end < len(text):
             search_start = start + max_chars // 2
             paragraph_break = text.rfind("\n\n", search_start, hard_end)
             line_break = text.rfind("\n", search_start, hard_end)
-            candidate = max(paragraph_break + 2 if paragraph_break >= 0 else -1, line_break + 1 if line_break >= 0 else -1)
+            candidate = max(
+                paragraph_break + 2 if paragraph_break >= 0 else -1,
+                line_break + 1 if line_break >= 0 else -1,
+            )
             if candidate > start:
                 end = candidate
         value = text[start:end]
         if not value:
-            end = min(length, start + max_chars)
+            end = min(len(text), start + max_chars)
             value = text[start:end]
         chunks.append((start, end, value))
         start = end
@@ -294,20 +303,19 @@ def chunk_source(args: argparse.Namespace) -> dict[str, Any]:
     expected_hash = project["source"]["source_hash"]
     if actual_hash != expected_hash:
         raise CangjieError(f"source hash mismatch: project={expected_hash}, file={actual_hash}")
-
     try:
         text = source_file.read_text(encoding="utf-8")
     except OSError as exc:
         raise CangjieError(f"could not read source text: {exc}") from exc
-    values = []
-    for index, (start, end, content) in enumerate(split_text(text, args.max_chars), start=1):
-        values.append(
-            {
-                "chunk_id": f"chunk-{index:04d}",
-                "content_hash": sha256_text(content),
-                "source_ref": f"chars:{start + 1}-{end}",
-            }
-        )
+
+    values = [
+        {
+            "chunk_id": f"chunk-{index:04d}",
+            "content_hash": sha256_text(content),
+            "source_ref": f"chars:{start + 1}-{end}",
+        }
+        for index, (start, end, content) in enumerate(split_text(text, args.max_chars), start=1)
+    ]
     chunks_path = project_paths(project_dir)["chunks"]
     write_jsonl(chunks_path, values)
 
@@ -323,20 +331,12 @@ def chunk_source(args: argparse.Namespace) -> dict[str, Any]:
     return {"chunks": len(values), "path": str(chunks_path), "source_hash": actual_hash}
 
 
-def cached_task_status(
-    project_dir: Path,
-    state: dict[str, Any],
-    task_id: str,
-    cache_key: str,
-    artifact: str,
-) -> str:
+def cached_task_status(project_dir: Path, state: dict[str, Any], task_id: str, cache_key: str, artifact: str) -> str:
     cached = state.get("task_cache", {}).get(task_id)
     if not cached or cached.get("status") != "success" or cached.get("cache_key") != cache_key:
         return "pending"
     cached_artifact = cached.get("artifact") or artifact
-    if not cached_artifact or not (project_dir / cached_artifact).is_file():
-        return "pending"
-    return "success"
+    return "success" if cached_artifact and (project_dir / cached_artifact).is_file() else "pending"
 
 
 def build_extraction_plan(args: argparse.Namespace) -> dict[str, Any]:
@@ -347,8 +347,7 @@ def build_extraction_plan(args: argparse.Namespace) -> dict[str, Any]:
     chunks = read_jsonl(chunks_path)
     seen_chunks: set[str] = set()
     for chunk in chunks:
-        required = {"chunk_id", "content_hash", "source_ref"}
-        missing = sorted(required - set(chunk))
+        missing = sorted({"chunk_id", "content_hash", "source_ref"} - set(chunk))
         if missing:
             raise CangjieError(f"chunk record missing fields {missing}: {chunk}")
         if chunk["chunk_id"] in seen_chunks:
@@ -356,11 +355,8 @@ def build_extraction_plan(args: argparse.Namespace) -> dict[str, Any]:
         seen_chunks.add(chunk["chunk_id"])
 
     profile = MODE_PROFILES[project["mode"]]
-    model_id = args.model_id
-    prompt_version = args.prompt_version
     tasks: list[dict[str, Any]] = []
     map_ids_by_extractor: dict[str, list[str]] = {}
-
     for extractor in profile["extractors"]:
         map_ids: list[str] = []
         for chunk in chunks:
@@ -372,11 +368,10 @@ def build_extraction_plan(args: argparse.Namespace) -> dict[str, Any]:
                     "source_hash": project["source"]["source_hash"],
                     "chunk_hash": chunk["content_hash"],
                     "extractor": extractor,
-                    "prompt_version": prompt_version,
-                    "model_id": model_id,
+                    "prompt_version": args.prompt_version,
+                    "model_id": args.model_id,
                 }
             )
-            status = cached_task_status(project_dir, state, task_id, cache_key, artifact)
             tasks.append(
                 {
                     "task_id": task_id,
@@ -385,7 +380,7 @@ def build_extraction_plan(args: argparse.Namespace) -> dict[str, Any]:
                     "chunk_id": chunk["chunk_id"],
                     "dependencies": [],
                     "cache_key": cache_key,
-                    "status": status,
+                    "status": cached_task_status(project_dir, state, task_id, cache_key, artifact),
                     "artifact": artifact,
                 }
             )
@@ -394,7 +389,8 @@ def build_extraction_plan(args: argparse.Namespace) -> dict[str, Any]:
 
     reduce_ids: list[str] = []
     for extractor in profile["extractors"]:
-        dependency_keys = [task["cache_key"] for task in tasks if task["task_id"] in map_ids_by_extractor[extractor]]
+        map_ids = map_ids_by_extractor[extractor]
+        dependency_keys = [task["cache_key"] for task in tasks if task["task_id"] in map_ids]
         task_id = f"reduce.{extractor}"
         artifact = f"work/reduced/{extractor}.json"
         cache_key = canonical_hash(
@@ -402,20 +398,19 @@ def build_extraction_plan(args: argparse.Namespace) -> dict[str, Any]:
                 "stage": "reduce",
                 "extractor": extractor,
                 "dependencies": dependency_keys,
-                "prompt_version": prompt_version,
-                "model_id": model_id,
+                "prompt_version": args.prompt_version,
+                "model_id": args.model_id,
             }
         )
-        status = cached_task_status(project_dir, state, task_id, cache_key, artifact)
         tasks.append(
             {
                 "task_id": task_id,
                 "stage": "reduce",
                 "extractor": extractor,
                 "chunk_id": None,
-                "dependencies": map_ids_by_extractor[extractor],
+                "dependencies": map_ids,
                 "cache_key": cache_key,
-                "status": status,
+                "status": cached_task_status(project_dir, state, task_id, cache_key, artifact),
                 "artifact": artifact,
             }
         )
@@ -441,7 +436,6 @@ def build_extraction_plan(args: argparse.Namespace) -> dict[str, Any]:
             "artifact": merge_artifact,
         }
     )
-
     verify_key = canonical_hash(
         {
             "stage": "verify",
@@ -470,25 +464,26 @@ def build_extraction_plan(args: argparse.Namespace) -> dict[str, Any]:
         "project_id": project["project_id"],
         "mode": project["mode"],
         "source_hash": project["source"]["source_hash"],
-        "prompt_version": prompt_version,
-        "model_id": model_id,
+        "prompt_version": args.prompt_version,
+        "model_id": args.model_id,
         "chunks": chunks,
         "tasks": tasks,
         "generated_at": now_iso(),
     }
-    validate_schema(plan, "extraction-plan.schema.json", str(project_paths(project_dir)["plan"]))
-    atomic_write_json(project_paths(project_dir)["plan"], plan)
+    plan_path = project_paths(project_dir)["plan"]
+    validate_schema(plan, "extraction-plan.schema.json", str(plan_path))
+    atomic_write_json(plan_path, plan)
 
+    prior_completed = set(state["completed_tasks"])
+    cached_completed = {task["task_id"] for task in tasks if task["status"] == "success"}
     state["stage"] = "extraction-planned"
     state["status"] = "pending"
-    state["completed_tasks"] = sorted({task["task_id"] for task in tasks if task["status"] == "success"})
+    state["completed_tasks"] = sorted(prior_completed | cached_completed | {"build_extraction_plan"})
     state["pending_tasks"] = [task["task_id"] for task in tasks if task["status"] != "success"]
-    state["artifacts"]["extraction_plan"] = str(project_paths(project_dir)["plan"].relative_to(project_dir))
-    if "build_extraction_plan" not in state["completed_tasks"]:
-        state["completed_tasks"].append("build_extraction_plan")
+    state["artifacts"]["extraction_plan"] = str(plan_path.relative_to(project_dir))
     save_state(project_dir, state)
     return {
-        "path": str(project_paths(project_dir)["plan"]),
+        "path": str(plan_path),
         "mode": project["mode"],
         "chunks": len(chunks),
         "tasks": len(tasks),
@@ -508,14 +503,12 @@ def record_task(args: argparse.Namespace) -> dict[str, Any]:
     if task is None:
         raise CangjieError(f"unknown task_id: {args.task_id}")
 
-    artifact = args.artifact
+    artifact = args.artifact or task.get("artifact")
     if args.status == "success":
-        artifact = artifact or task.get("artifact")
         if not artifact:
             raise CangjieError("successful task requires an artifact path")
         if not (project_dir / artifact).is_file():
             raise CangjieError(f"successful task artifact does not exist: {project_dir / artifact}")
-
     task["status"] = args.status
     if artifact:
         task["artifact"] = artifact
@@ -559,13 +552,31 @@ def plan_integrity_issues(plan: dict[str, Any]) -> list[str]:
     if len(task_ids) != len(set(task_ids)):
         issues.append("extraction plan task IDs must be unique")
     known = set(task_ids)
-    for task in plan.get("tasks", []):
-        unknown = sorted(set(task.get("dependencies", [])) - known)
+    graph = {task["task_id"]: set(task.get("dependencies", [])) for task in plan.get("tasks", [])}
+    for task_id, dependencies in graph.items():
+        unknown = sorted(dependencies - known)
         if unknown:
-            issues.append(f"task {task['task_id']} has unknown dependencies {unknown}")
-        if task["task_id"] in task.get("dependencies", []):
-            issues.append(f"task {task['task_id']} depends on itself")
-    return issues
+            issues.append(f"task {task_id} has unknown dependencies {unknown}")
+        if task_id in dependencies:
+            issues.append(f"task {task_id} depends on itself")
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(task_id: str) -> None:
+        if task_id in visited or task_id not in graph:
+            return
+        if task_id in visiting:
+            issues.append(f"dependency cycle detected at {task_id}")
+            return
+        visiting.add(task_id)
+        for dependency in graph[task_id]:
+            visit(dependency)
+        visiting.remove(task_id)
+        visited.add(task_id)
+
+    for task_id in graph:
+        visit(task_id)
+    return sorted(set(issues))
 
 
 def load_quality_gate_module() -> Any:
@@ -584,7 +595,7 @@ def validate_project(args: argparse.Namespace) -> dict[str, Any]:
     paths = project_paths(project_dir)
     issues: list[str] = []
     bundles = 0
-
+    project: dict[str, Any] | None = None
     try:
         project = load_project(project_dir)
         state = load_state(project_dir)
@@ -594,7 +605,6 @@ def validate_project(args: argparse.Namespace) -> dict[str, Any]:
             issues.append("pipeline-state project_id does not match project.yaml")
     except CangjieError as exc:
         issues.append(str(exc))
-        project = None
 
     if paths["plan"].is_file():
         try:
@@ -611,21 +621,18 @@ def validate_project(args: argparse.Namespace) -> dict[str, Any]:
     if skills_root.is_dir():
         for skill_yaml in sorted(skills_root.glob("*/skill.yaml")):
             bundles += 1
-            for issue in quality_gate.validate_bundle(skill_yaml.parent):
-                issues.append(str(issue))
-
-    result = {"project_dir": str(project_dir), "valid": not issues, "bundles": bundles, "issues": issues}
+            issues.extend(str(issue) for issue in quality_gate.validate_bundle(skill_yaml.parent))
     if issues:
         raise CangjieError("project validation failed:\n- " + "\n- ".join(issues))
-    return result
+    return {"project_dir": str(project_dir), "valid": True, "bundles": bundles, "issues": []}
 
 
 def directory_hashes(root: Path) -> dict[str, str]:
-    hashes: dict[str, str] = {}
-    for path in sorted(root.rglob("*")):
-        if path.is_file() and "__pycache__" not in path.parts:
-            hashes[str(path.relative_to(root))] = sha256_file(path)
-    return hashes
+    return {
+        str(path.relative_to(root)): sha256_file(path)
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and "__pycache__" not in path.parts
+    }
 
 
 def export_bundle(args: argparse.Namespace) -> dict[str, Any]:
@@ -648,13 +655,12 @@ def export_bundle(args: argparse.Namespace) -> dict[str, Any]:
         )
 
     output = args.output.resolve()
-    target_roots = {
+    destination = {
         "generic": output / skill_name,
         "claude": output / ".claude" / "skills" / skill_name,
         "cursor": output / ".cursor" / "skills" / skill_name,
         "codex": output / "codex-skills" / skill_name,
-    }
-    destination = target_roots[args.target]
+    }[args.target]
     if destination.exists():
         if not args.force:
             raise CangjieError(f"export destination already exists: {destination}; use --force")
@@ -666,7 +672,7 @@ def export_bundle(args: argparse.Namespace) -> dict[str, Any]:
         "generic": "Portable bundle; integrate it with the target agent runtime manually.",
         "claude": "Staged in a .claude/skills layout for review before installation.",
         "cursor": "Staged in a .cursor/skills layout for review before installation.",
-        "codex": "Staged in a neutral codex-skills directory. Review INSTALL-CODEX.md and reference the bundle from the project's agent instructions; no product-specific install path is assumed.",
+        "codex": "Staged in a neutral codex-skills directory. Review INSTALL-CODEX.md; no product-specific global install path is assumed.",
     }[args.target]
     manifest = {
         "schema_version": "1.0",
@@ -695,7 +701,6 @@ def project_status(args: argparse.Namespace) -> dict[str, Any]:
     project_dir = args.project_dir.resolve()
     project = load_project(project_dir)
     state = load_state(project_dir)
-    plan_path = project_paths(project_dir)["plan"]
     summary: dict[str, Any] = {
         "project_id": project["project_id"],
         "mode": project["mode"],
@@ -706,6 +711,7 @@ def project_status(args: argparse.Namespace) -> dict[str, Any]:
         "cached_tasks": sum(1 for item in state.get("task_cache", {}).values() if item.get("status") == "success"),
         "artifacts": state["artifacts"],
     }
+    plan_path = project_paths(project_dir)["plan"]
     if plan_path.is_file():
         plan = load_json(plan_path)
         summary["plan"] = {
@@ -731,10 +737,14 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--mode", choices=sorted(MODE_PROFILES), default="standard")
     init_parser.add_argument("--source-id", required=True)
     init_parser.add_argument("--source-title", required=True)
-    init_parser.add_argument("--source-type", choices=["book", "video", "podcast", "course", "interview", "article", "document-set"], required=True)
+    init_parser.add_argument(
+        "--source-type",
+        choices=["book", "video", "podcast", "course", "interview", "article", "document-set"],
+        required=True,
+    )
     source_group = init_parser.add_mutually_exclusive_group(required=True)
     source_group.add_argument("--source-file", type=Path)
-    source_group.add_argument("--source-hash", pattern=None)
+    source_group.add_argument("--source-hash")
     init_parser.add_argument("--author")
     init_parser.add_argument("--year", type=int)
     init_parser.add_argument("--goal", default="提炼可在真实任务中复用的方法论 Skills")
@@ -780,8 +790,6 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "profile":
             result = MODE_PROFILES[args.mode] if args.mode else MODE_PROFILES
         elif args.command == "init":
-            if args.source_hash and not args.source_hash.startswith("sha256:"):
-                raise CangjieError("--source-hash must use sha256:<64 lowercase hex>")
             result = init_project(args)
         elif args.command == "chunk":
             result = chunk_source(args)
