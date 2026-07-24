@@ -1,0 +1,48 @@
+name: Cangjie quality gate
+
+on:
+  pull_request:
+    paths:
+      - "schemas/**"
+      - "scripts/quality_gate.py"
+      - "templates/**"
+      - "examples/**"
+      - "tests/**"
+      - "requirements-quality.txt"
+      - ".github/workflows/quality-gate.yml"
+  push:
+    branches: [main]
+    paths:
+      - "schemas/**"
+      - "scripts/quality_gate.py"
+      - "templates/**"
+      - "examples/**"
+      - "tests/**"
+      - "requirements-quality.txt"
+      - ".github/workflows/quality-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install quality dependencies
+        run: python -m pip install -r requirements-quality.txt
+
+      - name: Run validator unit tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+
+      - name: Validate all machine-readable bundles
+        run: python scripts/quality_gate.py --all
