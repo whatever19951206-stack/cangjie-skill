@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cangjie Evidence",
+  "type": "object",
+  "required": ["evidence_id", "claim_type", "source_ref"],
+  "properties": {
+    "evidence_id": {"type": "string"},
+    "claim_type": {"enum": ["direct_quote", "author_paraphrase", "inferred_method", "model_critique", "external_fact"]},
+    "source_ref": {"type": "string"}
+  }
+}
