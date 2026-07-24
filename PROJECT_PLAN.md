@@ -12,20 +12,21 @@
 - [x] 示例 bundle
 - [x] 单元测试
 - [x] GitHub Actions
-- [ ] 将机器产物写入主 `SKILL.md` 的正式执行步骤
-- [ ] 为旧产物提供迁移脚本
+- [x] 将机器产物写入主 `SKILL.md` 的正式执行步骤
+- [x] 为旧产物提供保守迁移脚本
+- [x] 对齐人类模板、测试模板与机器门禁
 
 ## P1：证明 Skill 确实带来提升
 
-- 路由、执行、忠实度三套评测分离；
-- 基础模型与加载 Skill 后模型 A/B 对比；
-- 隐藏测试集；
-- 兄弟 Skill 混淆矩阵；
-- `uplift` 指标自动计算。
+- [ ] 路由、执行、忠实度三套评测分离
+- [ ] 基础模型与加载 Skill 后模型 A/B 对比
+- [ ] 隐藏测试集
+- [ ] 兄弟 Skill 混淆矩阵
+- [ ] `uplift` 指标自动计算
 
 ## P2：降低使用与运行成本
 
-- `scan / standard / audit` 三档模式；
-- Map-Reduce 提取，避免五个 Agent 重复阅读全文；
-- 增量缓存和状态恢复；
-- CLI 与 Claude、Cursor、Codex、Generic 导出器。
+- [ ] `scan / standard / audit` 三档模式
+- [ ] Map-Reduce 提取，避免五个 Agent 重复阅读全文
+- [ ] 增量缓存和状态恢复
+- [ ] CLI 与 Claude、Cursor、Codex、Generic 导出器
