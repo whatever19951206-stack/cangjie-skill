@@ -3,48 +3,55 @@ name: {{skill-slug}}
 description: |
   {{何时调用 + 何时不调用 + 关键 trigger 信号, ≤300 字}}
 source_book: 《{{BOOK_TITLE}}》 {{AUTHOR}}
-source_chapter: {{章节}}
+source_chapter: {{章节 / 页码 / 时间戳}}
 tags: [{{tag1}}, {{tag2}}]
 related_skills: []    # 阶段 3 填充
+machine_bundle: skill.yaml
 ---
 
 <!--
-  填写说明 (生成最终 skill 时删除本注释块):
-  - description: 基于 A2 段浓缩, ≤300 字, 必须含"何时调用 + 何时不调用 + 关键 trigger 信号"。
-    好例: "用户在纠结一个决策、列举正面理由却理不出头绪时;或在问'怎么做 X 才能成功'时。不适用于: 纯信息查询、日常琐碎选择。"
-    关键 trigger 词建议中英双写, 提高英文提问场景的触发准确率。
-  - source_chapter: 书填章节/页码; 视频填时间戳/分 P; 播客填集数。
-  - source_book / tags / related_skills 为审计与链接用的扩展字段, 宿主加载 skill 时只读 name + description。
+  填写说明（生成最终 skill 时删除本注释块）：
+  - 本文件是人类可读说明；机器路由与发布状态以同目录 skill.yaml 为准。
+  - description: 基于 A2 段浓缩，≤300 字，必须含“何时调用 + 何时不调用 + 关键 trigger 信号”。
+  - source_chapter: 书填章节/页码；视频填时间戳/分 P；播客填集数。
+  - R / I / A1 / B 中涉及来源的主张，要在 evidence.json 中有对应 evidence_id 和 claim_type。
+  - related_skills 与 skill.yaml.routing.sibling_priority 必须同步。
 -->
 
 # {{Skill Title}}
 
 ## R — 原文 (Reading)
 
-> {{原文引用, ≤150 字 (英文 ≤100 词), 必须标注章节/页码/时间戳}}
+> {{原文引用，≤150 字（英文 ≤100 词），必须标注章节 / 页码 / 时间戳}}
 >
 > — {{AUTHOR}}, {{CHAPTER}}
+
+- **证据 ID**: `{{ev_direct_quote_001}}`
+- **claim_type**: `direct_quote`
 
 ---
 
 ## I — 方法论骨架 (Interpretation)
 
-{{ 用自己的话重写, 5-15 行。
-   读完这段, 一个没读过原书的人应当能理解这个方法论在做什么。
-   禁止照搬原文, 禁止堆砌修辞。}}
+{{用自己的话重写，5–15 行。一个没读过原内容的人也应理解方法在做什么。禁止照搬原文，禁止把模型推断写成作者明确主张。}}
+
+- **支持证据**: `{{ev_author_paraphrase_001}}`
+- **claim_type**: `author_paraphrase` 或 `inferred_method`
 
 ---
 
-## A1 — 书中的应用 (Past Application)
+## A1 — 原内容中的应用 (Past Application)
 
 ### 案例 1: {{案例名}}
 - **问题**: {{作者遇到了什么}}
-- **方法论的使用**: {{作者怎么用这个方法论思考}}
+- **方法论的使用**: {{作者如何使用}}
 - **结论**: {{得出了什么}}
 - **结果**: {{实际发生了什么}}
+- **证据 ID**: `{{ev_case_001}}`
 
-### 案例 2 (如有)
-...
+### 案例 2（如有）
+
+{{...}}
 
 ---
 
@@ -52,11 +59,11 @@ related_skills: []    # 阶段 3 填充
 
 ### 用户会在什么情境下需要这个 skill?
 
-1. {{场景 1 — 具体到可识别的情况}}
+1. {{场景 1——具体到可识别的情况}}
 2. {{场景 2}}
 3. {{场景 3}}
 
-### 语言信号 (用户的话里出现这些就应激活)
+### 语言信号（用户的话里出现这些可能激活）
 
 - "{{典型措辞 1}}"
 - "{{典型措辞 2}}"
@@ -64,24 +71,28 @@ related_skills: []    # 阶段 3 填充
 
 ### 与相邻 skill 的区分
 
-- 与 `{{related-skill-a}}` 的区别: {{ ... }}
-- 与 `{{related-skill-b}}` 的区别: {{ ... }}
+- 与 `{{related-skill-a}}` 的区别: {{...}}
+- 与 `{{related-skill-b}}` 的区别: {{...}}
+
+> 将以上内容同步到 `skill.yaml.routing.include / exclude / signals / sibling_priority`。
 
 ---
 
 ## E — 可执行步骤 (Execution)
 
-当 skill 被激活后, agent 应按以下步骤执行:
+当 skill 被激活后，agent 应按以下步骤执行：
 
 1. **{{步骤 1}}**
    - 完成标准: {{如何判断这一步已完成}}
 
 2. **{{步骤 2}}**
-   - 完成标准: {{ ... }}
-   - 判停条件: 若 {{X}} 则跳到步骤 {{N}}
+   - 完成标准: {{...}}
+   - 判停条件: 若 {{X}} 则停止或跳到步骤 {{N}}
 
 3. **{{步骤 3}}**
-   - 完成标准: {{ ... }}
+   - 完成标准: {{...}}
+
+> 将步骤、完成标准和判停条件同步到 `skill.yaml.workflow`。
 
 ---
 
@@ -89,24 +100,26 @@ related_skills: []    # 阶段 3 填充
 
 ### 不要在以下情况使用此 skill
 
-- {{反场景 1 — 为什么不适用}}
+- {{反场景 1——为什么不适用}}
 - {{反场景 2}}
 
-### 作者在书中警告的失败模式
+### 作者在原内容中警告的失败模式
 
-- {{ 来自 counter-example-extractor 的对应反例 }}
+- {{来自 counter-example-extractor 的对应反例}}
+- **证据 ID**: `{{ev_counterexample_001}}`
 
 ### 作者的盲点 / 时代局限
 
-- {{ 来自阶段 0 批判阶段 }}
+- {{来自阶段 0 批判阶段}}
+- **claim_type**: `model_critique`（除非原文明确自我批判）
 
 ### 容易混淆的邻近方法论
 
-- {{ ... }}
+- {{...}}
 
 ---
 
-## 相关 skills (阶段 3 填充)
+## 相关 skills（阶段 3 填充）
 
 - depends-on: {{}}
 - contrasts-with: {{}}
@@ -116,6 +129,10 @@ related_skills: []    # 阶段 3 填充
 
 ## 审计信息
 
-- **验证通过**: V1 ✓ / V2 ✓ / V3 ✓
-- **测试通过率**: {{%}} (详见 test-prompts.json)
+- **验证状态**: V1 {{✓/✗}} / V2 {{✓/✗}} / V3 {{✓/✗}}
+- **机器状态**: `{{draft / tested / published}}`
+- **hard_gate_passed**: `{{false / true}}`
+- **测试通过率**: {{%}}（详见 `test-results.json`，不是只看测试题）
+- **证据文件**: `evidence.json`
+- **机器合同**: `skill.yaml`
 - **蒸馏时间**: {{DATE}}
