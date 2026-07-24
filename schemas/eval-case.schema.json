@@ -63,7 +63,8 @@
                     "description": {"type": "string", "minLength": 4}
                   }
                 }
-              }
+              },
+              "minimum_score": {"type": "number", "minimum": 0, "maximum": 1}
             }
           }
         }
@@ -85,7 +86,8 @@
                 "uniqueItems": true
               },
               "max_unsupported_claims": {"type": "integer", "minimum": 0},
-              "max_citation_errors": {"type": "integer", "minimum": 0}
+              "max_citation_errors": {"type": "integer", "minimum": 0},
+              "minimum_score": {"type": "number", "minimum": 0, "maximum": 1}
             }
           }
         }
