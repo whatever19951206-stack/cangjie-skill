@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0",
+  "source": {
+    "source_id": "quality-gate-demo-v1",
+    "title": "质量门禁演示材料",
+    "author": "Cangjie Maintainers",
+    "type": "document-set",
+    "source_hash": "sha256:85166b54adee68db63401e3dc9055a2922522c286806b1f52d3ee09193ae525f"
+  },
+  "evidence": [
+    {
+      "evidence_id": "ev_demo_001",
+      "claim_type": "direct_quote",
+      "source_ref": {
+        "source_id": "quality-gate-demo-v1",
+        "chapter": "第一节",
+        "paragraph": 1
+      },
+      "text": "在高代价行动开始前，先写下最不可接受的失败结果。",
+      "text_hash": "sha256:8d75e8761b7c6af429646d544c3697eb486ac7ad42a9effa100b2fe63ffbb494",
+      "supports": "高代价行动应先定义失败状态"
+    },
+    {
+      "evidence_id": "ev_demo_002",
+      "claim_type": "author_paraphrase",
+      "source_ref": {
+        "source_id": "quality-gate-demo-v1",
+        "chapter": "第二节",
+        "paragraph": 2
+      },
+      "text": "材料建议把失败结果拆成人员、资源、时间与外部环境四类路径。",
+      "text_hash": "sha256:ba6377185b49de96ea74430ca28938474a75bf63508803c7039390537b3007bb",
+      "supports": "失败路径需要多维分类"
+    },
+    {
+      "evidence_id": "ev_demo_003",
+      "claim_type": "inferred_method",
+      "source_ref": {
+        "source_id": "quality-gate-demo-v1",
+        "chapter": "第三节",
+        "paragraph": 1
+      },
+      "text": "由此可归纳出：只有当失败代价足够高时，完整预演才值得执行。",
+      "text_hash": "sha256:fb570fd310b194afe566ffd33967b134b45a7577073c6ec1f3b6d194f6fe83a3",
+      "supports": "使用强度应与失败代价匹配"
+    }
+  ]
+}
