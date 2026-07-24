@@ -8,9 +8,9 @@ on:
       - "scripts/quality_gate.py"
       - "scripts/migrate_legacy_skill.py"
       - "scripts/evaluate_skill.py"
+      - "scripts/cangjie.py"
       - "templates/**"
-      - "methodology/08-machine-quality-gates.md"
-      - "methodology/09-effect-evaluation.md"
+      - "methodology/**"
       - "docs/**"
       - "examples/**"
       - "tests/**"
@@ -24,9 +24,9 @@ on:
       - "scripts/quality_gate.py"
       - "scripts/migrate_legacy_skill.py"
       - "scripts/evaluate_skill.py"
+      - "scripts/cangjie.py"
       - "templates/**"
-      - "methodology/08-machine-quality-gates.md"
-      - "methodology/09-effect-evaluation.md"
+      - "methodology/**"
       - "docs/**"
       - "examples/**"
       - "tests/**"
@@ -55,7 +55,24 @@ jobs:
         run: python -m pip install -r requirements-quality.txt
 
       - name: Run all unit tests
-        run: python -m unittest discover -s tests -p 'test_*.py' -v
+        id: unit-tests
+        continue-on-error: true
+        run: python -m unittest discover -s tests -p 'test_*.py' -v > /tmp/unit-tests.log 2>&1
+
+      - name: Upload unit test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-log
+          path: /tmp/unit-tests.log
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail when unit tests fail
+        if: steps.unit-tests.outcome == 'failure'
+        run: |
+          cat /tmp/unit-tests.log
+          exit 1
 
       - name: Validate all machine-readable bundles
         run: python scripts/quality_gate.py --all
