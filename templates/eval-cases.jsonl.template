@@ -1,0 +1,3 @@
+{"id":"routing-001","suite":"routing","prompt":"{{真实用户路由场景}}","visibility":"public","tags":["routing"],"expected":{"expected_skill":"{{skill-slug-or-null}}","candidate_skills":["{{skill-slug}}","{{sibling-skill-slug}}"]}}
+{"id":"execution-001","suite":"execution","prompt":"{{要求执行目标方法的真实任务}}","visibility":"public","tags":["execution"],"expected":{"rubric":[{"id":"step_coverage","weight":0.5,"description":"{{是否覆盖关键执行步骤}}"},{"id":"output_quality","weight":0.5,"description":"{{输出是否满足合同和完成标准}}"}],"minimum_score":0.8}}
+{"id":"faithfulness-001","suite":"faithfulness","prompt":"{{要求基于证据解释方法的任务}}","visibility":"hidden","tags":["faithfulness"],"expected":{"allowed_evidence_refs":["{{ev_001}}","{{ev_002}}"],"max_unsupported_claims":0,"max_citation_errors":0,"minimum_score":0.9}}
