@@ -1,64 +1,87 @@
-# P0：机器可验证的质量门禁
+# Cangjie P0 Quality Gates
 
-这一层不替代现有 RIA-TV++ 流程，而是把原先依赖 Agent 自觉遵守的质量红线变成可执行检查。
+## Goal
 
-## 新增的机器产物
+Move Cangjie from a prompt-only workflow toward an auditable skill compilation pipeline without removing the existing RIA-TV++ human-readable workflow.
 
-每个准备交付的 Skill 目录应同时包含：
+## Delivered
 
-```text
-<skill-dir>/
-├── SKILL.md             # 人类与宿主可读版本，保留现有格式
-├── skill.yaml           # 机器可读的路由、执行、边界和验证信息
-├── evidence.json        # 稳定证据 ID、定位信息、声明类型和文本哈希
-├── test-prompts.json    # Darwin 兼容测试输入
-└── test-results.json    # 实际执行结果，不再只写“待测”
-```
+- Machine-readable `skill.yaml`
+- Structured `evidence.json`
+- Executed `test-results.json`
+- Machine `pipeline-state.json`
+- JSON Schema for all machine artifacts
+- Cross-file evidence reference and source consistency checks
+- SHA-256 verification for evidence text
+- Unresolved-placeholder detection
+- Positive, negative, edge, and sibling-skill routing requirements
+- Negative-test zero tolerance
+- Summary/result consistency checks
+- Unit tests and a complete passing example bundle
+- GitHub Actions quality gate
+- Main `SKILL.md` integration
+- Conservative legacy migration tooling
 
-项目级断点状态可逐步从 `PIPELINE_STATE.md` 迁移为 `pipeline-state.json`。迁移期允许两者并存。
+## Evidence categories
 
-## 声明类型
+- `direct_quote`
+- `author_paraphrase`
+- `inferred_method`
+- `model_critique`
+- `external_fact`
 
-`evidence.json` 强制把内容分成：
+These categories must not be collapsed into a single “source-backed” label. In particular, model inference and critique must not be presented as an author's explicit claim.
 
-- `direct_quote`：原文直接引用；
-- `author_paraphrase`：对作者观点的忠实转述；
-- `inferred_method`：模型基于多个证据归纳的方法；
-- `model_critique`：模型对作者局限的批判；
-- `external_fact`：来自原材料之外、需要独立来源的事实。
+## Commands
 
-这可以避免模型推断或批判被包装成“作者原意”。
-
-## 自动检查
+Install dependencies:
 
 ```bash
 python -m pip install -r requirements-quality.txt
-python scripts/quality_gate.py examples/quality-gate-sample
-python scripts/quality_gate.py --all
-python -m unittest discover -s tests -p 'test_*.py'
 ```
 
-质量门禁检查：
+Validate one bundle:
 
-1. YAML/JSON 是否符合 Schema；
-2. 是否残留模板占位符；
-3. `evidence_refs` 是否真实存在；
-4. 证据 ID 是否重复；
-5. 证据文本 SHA-256 是否匹配；
-6. 来源 ID 和来源哈希是否跨文件一致；
-7. 测试是否覆盖至少 3 个正例、2 个负例和 1 个边界例；
-8. 是否包含至少一个兄弟 Skill 混淆负例；
-9. 每个测试是否真的存在执行结果；
-10. 汇总数字是否和逐条结果一致；
-11. 所有负例是否通过；
-12. 通过率是否达到 `minimum_pass_rate`；
-13. `tested` / `published` Skill 是否已通过硬门禁。
+```bash
+python scripts/quality_gate.py path/to/skill
+```
 
-## 兼容策略
+Validate all bundles and pipeline states:
 
-P0 是增量改造：
+```bash
+python scripts/quality_gate.py --all
+```
 
-- 不删除现有 `SKILL.md`、`test-results.md` 和 RIA++ 文档；
-- 新生成的 Skill 同时写人类格式和机器格式；
-- 旧产物可继续存在，但只有具备完整机器产物的目录才进入自动发布门禁；
-- P1 再加入基线模型与安装 Skill 后模型的 A/B 效果评测。
+Run tests:
+
+```bash
+python -m unittest discover -s tests -p 'test_*.py' -v
+```
+
+Migrate a legacy bundle conservatively:
+
+```bash
+python scripts/migrate_legacy_skill.py path/to/legacy-skill --write
+```
+
+## Publication rule
+
+A skill must not be installed or published unless:
+
+- its machine bundle is complete;
+- evidence references and hashes validate;
+- test results were actually executed;
+- every negative test passes;
+- the overall threshold passes;
+- `verification.hard_gate_passed` is true;
+- `status` is `tested` or `published`.
+
+## Next: P1
+
+P1 will evaluate whether a Skill produces measurable improvement rather than only checking internal consistency:
+
+- separate routing, execution, and faithfulness evaluation;
+- baseline vs Skill A/B comparison;
+- hidden tests;
+- sibling-skill confusion matrix;
+- calculated uplift.
