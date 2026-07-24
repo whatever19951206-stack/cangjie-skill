@@ -1,0 +1,69 @@
+name: One-off P2 state reconciliation fix
+
+on:
+  push:
+    branches:
+      - feat/p2-runtime-cli
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out P2 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/p2-runtime-cli
+          fetch-depth: 0
+
+      - name: Reconcile completed and pending task sets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/cangjie.py")
+          text = path.read_text(encoding="utf-8")
+          old = '''    prior_completed = set(state["completed_tasks"])
+              cached_completed = {task["task_id"] for task in tasks if task["status"] == "success"}
+              state["stage"] = "extraction-planned"
+              state["status"] = "pending"
+              state["completed_tasks"] = sorted(prior_completed | cached_completed | {"build_extraction_plan"})
+              state["pending_tasks"] = [task["task_id"] for task in tasks if task["status"] != "success"]
+          '''.replace("              ", "    ")
+          new = '''    prior_completed = set(state["completed_tasks"])
+              non_plan_completed = {
+                  task_id
+                  for task_id in prior_completed
+                  if not task_id.startswith(("map.", "reduce.", "merge.", "verify."))
+              }
+              cached_completed = {task["task_id"] for task in tasks if task["status"] == "success"}
+              pending_tasks = [task["task_id"] for task in tasks if task["status"] != "success"]
+              state["stage"] = "extraction-planned"
+              state["status"] = "pending"
+              state["completed_tasks"] = sorted(
+                  non_plan_completed | cached_completed | {"build_extraction_plan"}
+              )
+              state["pending_tasks"] = pending_tasks
+          '''.replace("              ", "    ")
+          if new in text:
+              print("Patch already applied")
+          elif old in text:
+              path.write_text(text.replace(old, new, 1), encoding="utf-8")
+              print("Patch applied")
+          else:
+              raise SystemExit("Expected state reconciliation block was not found")
+          PY
+
+      - name: Commit patch when needed
+        run: |
+          if git diff --quiet -- scripts/cangjie.py; then
+            echo "No patch commit needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/cangjie.py
+          git commit -m "fix(p2): reconcile invalidated tasks in pipeline state"
+          git push origin HEAD:feat/p2-runtime-cli
