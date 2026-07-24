@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import json
 import sys
 import tempfile
@@ -31,6 +33,13 @@ class EvaluationHarnessTests(unittest.TestCase):
     def load_records(self, path: Path) -> list[dict]:
         return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
+    def run_main(self, arguments: list[str]) -> tuple[int, str, str]:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            code = evaluation.main(arguments)
+        return code, stdout.getvalue(), stderr.getvalue()
+
     def test_example_report_calculates_uplift_and_confusion(self) -> None:
         report = evaluation.evaluate(EXAMPLE_CASES, EXAMPLE_RESULTS)
 
@@ -38,8 +47,7 @@ class EvaluationHarnessTests(unittest.TestCase):
         self.assertEqual(routing["baseline"]["accuracy"], 0.0)
         self.assertEqual(routing["skill"]["accuracy"], 1.0)
         self.assertEqual(
-            routing["baseline"]["confusion_matrix"]["failure-preflight"]["checklist-review"],
-            1,
+            routing["baseline"]["confusion_matrix"]["failure-preflight"]["checklist-review"], 1
         )
         self.assertEqual(routing["skill"]["confusion_matrix"]["__none__"]["__none__"], 1)
 
@@ -72,8 +80,7 @@ class EvaluationHarnessTests(unittest.TestCase):
         self.assertEqual(report["case_counts"]["hidden"], 2)
 
     def test_missing_paired_condition_fails(self) -> None:
-        records = self.load_records(EXAMPLE_RESULTS)
-        path = self.temporary_jsonl(records[:-1])
+        path = self.temporary_jsonl(self.load_records(EXAMPLE_RESULTS)[:-1])
         with self.assertRaises(evaluation.EvaluationError):
             evaluation.evaluate(EXAMPLE_CASES, path)
 
@@ -82,45 +89,40 @@ class EvaluationHarnessTests(unittest.TestCase):
         for record in records:
             if record["id"] == "execution-public-01" and record["condition"] == "skill":
                 record["rubric_scores"].pop("reverse_actions")
-        path = self.temporary_jsonl(records)
         with self.assertRaises(evaluation.EvaluationError):
-            evaluation.evaluate(EXAMPLE_CASES, path)
+            evaluation.evaluate(EXAMPLE_CASES, self.temporary_jsonl(records))
 
     def test_model_mismatch_fails_fair_ab_requirement(self) -> None:
         records = self.load_records(EXAMPLE_RESULTS)
         records[1]["model_id"] = "different-model"
-        path = self.temporary_jsonl(records)
         with self.assertRaises(evaluation.EvaluationError):
-            evaluation.evaluate(EXAMPLE_CASES, path)
+            evaluation.evaluate(EXAMPLE_CASES, self.temporary_jsonl(records))
 
     def test_cli_uplift_gate(self) -> None:
-        self.assertEqual(
-            evaluation.main(
-                [
-                    "--cases",
-                    str(EXAMPLE_CASES),
-                    "--results",
-                    str(EXAMPLE_RESULTS),
-                    "--minimum-uplift",
-                    "0.5",
-                    "--fail-on-regression",
-                ]
-            ),
-            0,
+        code, _, stderr = self.run_main(
+            [
+                "--cases",
+                str(EXAMPLE_CASES),
+                "--results",
+                str(EXAMPLE_RESULTS),
+                "--minimum-uplift",
+                "0.5",
+                "--fail-on-regression",
+            ]
         )
-        self.assertEqual(
-            evaluation.main(
-                [
-                    "--cases",
-                    str(EXAMPLE_CASES),
-                    "--results",
-                    str(EXAMPLE_RESULTS),
-                    "--minimum-uplift",
-                    "0.7",
-                ]
-            ),
-            1,
+        self.assertEqual(code, 0, stderr)
+        code, _, stderr = self.run_main(
+            [
+                "--cases",
+                str(EXAMPLE_CASES),
+                "--results",
+                str(EXAMPLE_RESULTS),
+                "--minimum-uplift",
+                "0.7",
+            ]
         )
+        self.assertEqual(code, 1)
+        self.assertIn("EVALUATION GATE FAILED", stderr)
 
 
 if __name__ == "__main__":
