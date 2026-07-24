@@ -3,9 +3,13 @@ name: Cangjie quality gate
 on:
   pull_request:
     paths:
+      - "SKILL.md"
       - "schemas/**"
       - "scripts/quality_gate.py"
+      - "scripts/migrate_legacy_skill.py"
       - "templates/**"
+      - "methodology/08-machine-quality-gates.md"
+      - "docs/**"
       - "examples/**"
       - "tests/**"
       - "requirements-quality.txt"
@@ -13,9 +17,13 @@ on:
   push:
     branches: [main]
     paths:
+      - "SKILL.md"
       - "schemas/**"
       - "scripts/quality_gate.py"
+      - "scripts/migrate_legacy_skill.py"
       - "templates/**"
+      - "methodology/08-machine-quality-gates.md"
+      - "docs/**"
       - "examples/**"
       - "tests/**"
       - "requirements-quality.txt"
@@ -42,7 +50,7 @@ jobs:
       - name: Install quality dependencies
         run: python -m pip install -r requirements-quality.txt
 
-      - name: Run validator unit tests
+      - name: Run validator and migration unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
 
       - name: Validate all machine-readable bundles
