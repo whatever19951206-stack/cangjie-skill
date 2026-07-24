@@ -1,0 +1,22 @@
+{
+  "skill": "{{skill-slug}}",
+  "generated_at": "{{ISO-8601 时间}}",
+  "execution_mode": "independent-agent",
+  "tests": [
+    {
+      "id": "should-trigger-01",
+      "type": "should_trigger",
+      "passed": true,
+      "actual_behavior": "{{盲测实际行为}}",
+      "rationale": "{{判定理由}}"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "pass_rate": 1.0,
+    "all_negative_passed": true,
+    "status": "passed"
+  }
+}
