@@ -1,252 +1,386 @@
 ---
 name: cangjie-skill
-description: Distill a book, long-video transcript, podcast, course, or interview into a coherent set of executable skills. Use when the user asks to "拆书" / "蒸馏一本书" / "把 XX 书做成 skill" / "把这个视频/播客/课程蒸馏成 skill" / "turn a book or video into skills" — i.e. wants the frameworks, principles, and methodologies in long-form content extracted into atomic, reusable Claude skills that an agent can invoke in real-world situations. NOT for simple summarization, book reviews, or role-playing as the author (that is nuwa-skill's job).
+description: Distill a book, long-video transcript, podcast, course, interview, long article, or document set into a small, evidence-backed, executable set of Agent Skills. Use only when the user explicitly asks to "拆书" / "蒸馏内容成 skill" / "turn this source into skills" or wants reusable methods extracted from long-form material. Do not use for ordinary summaries, book reviews, factual Q&A, or role-playing as the author.
 ---
 
-# cangjie-skill — 把一本书蒸馏成一组可执行 skills 的元 skill
+# cangjie-skill — 长内容到可执行 Agent Skills 的工程化流水线
 
 ## 使命
 
-把一本书里沉淀的方法论，拆解成一组**原子化、可被 agent 在真实场景下调用、可追溯、可测试**的 skills，让读者真正用起来。
+把长内容中的方法论、框架、原则和清单，转化成一组：
 
-> **术语约定**：本文档及 `methodology/`、`extractors/` 中所有的“书”，泛指一切被蒸馏的长内容——书籍、长视频转写、播客文字稿、课程、访谈、长文、资料集。
+- 可在真实场景中正确触发；
+- 有明确执行步骤和边界；
+- 能回查原始证据；
+- 经真实测试而非只生成测试题；
+- 相比不用 Skill 的 baseline 有可测提升；
+- 可断点续跑、增量更新和跨平台导出的 Skills。
 
-**边界**：
-- ✅ 做：方法论 / 决策框架 / 清单 / 原则 / 概念体系的蒸馏
-- ❌ 不做：书摘 / 读后感 / 作者人设角色扮演（后者请用 nuwa-skill）
+本文中的“书”泛指书籍、视频转写、播客文字稿、课程、访谈、长文和资料集。
 
-## 核心方法论：RIA-TV++
+## 不适用场景
 
-一个五阶段 + 并行提取 + 三重验证 + 机器证据链 + darwin 兼容测试的流水线。方法论总览见 `methodology/00-overview.md`，机器质量门禁见 `methodology/08-machine-quality-gates.md`。
+- 普通摘要、书评、读后感；
+- 只需要查一个事实或解释一段内容；
+- 模仿作者语气或人格；
+- 没有可访问原文，却要求凭记忆蒸馏；
+- 一次性、低复杂度、无需长期复用的任务。
+
+## 三种运行模式
+
+开始前根据目标选择模式，并写入 `project.yaml`。模式不是口头约定。
+
+| 模式 | 用途 | 默认上限 | 质量要求 |
+|---|---|---:|---|
+| `scan` | 快速判断材料是否值得加工 | 3 个 Skills | 轻量提取，不作为正式发布 |
+| `standard` | 个人长期复用 | 5 个 Skills | 完整证据、独立测试、公开 A/B |
+| `audit` | 组织级或高风险场景 | 10 个 Skills | 外部核验、隐藏评测、完整审计 |
+
+模式细则见 `methodology/10-runtime-modes.md`。
+
+## 总体流水线
 
 ```text
-阶段 0: Adler 整体理解       → BOOK_OVERVIEW.md
-阶段 1: 5 个 agent 并行提取  → 候选方法论单元池
-阶段 1.5: 三重验证筛选       → 通过的单元（用户轻确认）
-阶段 2: RIA++ 构造 skill     → SKILL.md + skill.yaml + evidence.json
-阶段 3: Zettelkasten 链接    → INDEX.md + GLOSSARY.md + sibling routing
-阶段 4: 压力测试             → test-prompts.json + test-results.json
-阶段 5: 质量门禁与交付       → DIGEST.md + 通过校验的安装包
+预检与模式选择
+  ↓
+阶段 0  整体理解
+  ↓
+阶段 1  Map-Reduce 并行提取
+  ↓
+阶段 1.5  候选验证、去重、用户轻确认
+  ↓
+阶段 2  RIA++ Skill 构造 + 机器证据链
+  ↓
+阶段 3  Skill 关系、术语和兄弟路由
+  ↓
+阶段 4  路由与执行压力测试
+  ↓
+阶段 4.5  baseline vs Skill 真实效果评测
+  ↓
+阶段 5  全项目门禁、交付和导出
 ```
-
-## 何时调用此 skill
-
-用户说类似：
-- “帮我拆《穷查理宝典》”
-- “把毛选蒸馏成 skill”
-- “把这个 B 站视频 / 播客 / 课程蒸馏成 skill”
-- “distill this book into skills: <path>”
-- “我想把这本书的方法论做成可用的 skill”
-
-不要因为用户只说“总结一下”“介绍一下”就启动本流程。
 
 ## 输入要求
 
-在开始前**必须**从用户处确认：
+开始前必须确认：
 
-1. **内容文本来源**：PDF / EPUB / TXT / 字幕文件 / 转写稿路径，或可访问的纯文本。**不要**在没有文本的情况下“凭记忆”蒸馏——宁可停下来问用户要。
-2. **内容元信息**：书籍是“书名 + 作者 + 出版年”；视频 / 播客 / 课程是“标题 + 作者（UP 主 / 主播 / 讲者）+ 发布时间”。
-3. **使用目标**：生成的 skills 主要用于哪些真实工作场景。这个信息用于候选排序，不得用来曲解原文。
-4. **是否首次试点**：第一次使用时，优先只蒸馏 1 份内容验证流程再批量。
+1. **原始内容**：可访问的 PDF、EPUB、TXT、字幕、转写稿或纯文本。
+2. **元信息**：标题、作者或讲者、年份或发布时间、内容类型。
+3. **使用目标**：生成的 Skills 准备用于哪些真实任务。
+4. **风险级别**：是否涉及医疗、法律、财务、人事、安全或组织制度。
+5. **模式**：`scan`、`standard` 或 `audit`。
 
-**非书籍内容的字段映射**：`source_chapter` 等“章节”字段，对视频填时间戳或分 P，对播客填集数，对课程填讲次；必须保证可回查。
+不要在缺少原始文本时继续。不要把用户目标当作修改作者原意的依据。
 
-## 双轨产物
+## 项目初始化
 
-每个项目同时维护两类产物：
-
-- **人类可读层**：用于阅读、讨论和人工审核的 Markdown。
-- **机器可验证层**：用于 Schema、证据引用、测试执行和 CI 门禁的 YAML / JSON。
-
-Markdown 不是机器状态的唯一来源；机器文件也不能代替给用户看的解释。
-
-## 输出结构
-
-```text
-books/<book-slug>/
-├── pipeline-state.json         # 机器状态源：阶段、产物、模型运行、下一步
-├── PIPELINE_STATE.md           # 面向人的状态摘要（与 JSON 同步）
-├── BOOK_OVERVIEW.md            # 阶段 0：主旨 / 骨架 / 术语 / 批判
-├── verified.md                 # 阶段 1.5：通过验证的单元 + 判定理由
-├── INDEX.md                    # 阶段 3：skill 总览 + 引用图
-├── GLOSSARY.md                 # 阶段 3：全书共享术语词典
-├── DIGEST.md                   # 阶段 5：面向读者的精华长文
-├── candidates/                 # 阶段 1：原始候选池（审计用）
-├── rejected/                   # 阶段 1.5：淘汰单元 + 原因（审计用）
-├── <skill-slug-1>/
-│   ├── SKILL.md                # 人类可读说明
-│   ├── skill.yaml              # 机器可读路由、流程、边界、验证状态
-│   ├── evidence.json           # 来源定位、claim_type、文本哈希
-│   ├── test-prompts.json       # darwin 兼容测试输入
-│   ├── test-results.json       # 实际执行结果；禁止伪造
-│   └── test-results.md         # 面向人的失败分析与修订说明
-└── <skill-slug-2>/
-    └── ...
-```
-
-## 执行流程（严格按顺序）
-
-### 断点续跑
-
-开始前先检查 `books/<slug>/pipeline-state.json`；存在则按机器状态续跑，不要从头重来。`PIPELINE_STATE.md` 是人类摘要，必须与 JSON 保持一致。
-
-每完成一个阶段：
-
-1. 更新已完成产物、各 skill 状态和下一步；
-2. 记录模型 / prompt 版本（环境支持时）；
-3. 校验 `pipeline-state.json`：
+推荐使用 CLI 建立项目，而不是临时创建散乱文件：
 
 ```bash
-python scripts/quality_gate.py --state books/<slug>/pipeline-state.json
+python scripts/cangjie.py init books/<slug> \
+  --project-id <slug> \
+  --mode standard \
+  --source-id <stable-source-id> \
+  --source-title "<TITLE>" \
+  --source-type book \
+  --source-file /path/to/source.txt \
+  --goal "<真实使用目标>"
 ```
 
-### 阶段 0 — 整体理解
+项目结构：
 
-1. 读取用户提供的完整内容；大文件按可回溯位置分块。
-2. 执行 `methodology/01-stage0-adler.md` 中的 Adler 四步（结构 / 解释 / 批判 / 应用）。
-3. 按 `templates/BOOK_OVERVIEW.md.template` 生成 `BOOK_OVERVIEW.md`。
-4. 向用户确认：“骨架理解是否正确？希望重点突出哪些方向？”确认后再进入阶段 1。
+```text
+books/<slug>/
+├── project.yaml
+├── pipeline-state.json
+├── BOOK_OVERVIEW.md
+├── verified.md
+├── INDEX.md
+├── GLOSSARY.md
+├── DIGEST.md
+├── source/
+│   └── chunks.jsonl
+├── work/
+│   └── extraction-plan.json
+├── candidates/
+├── rejected/
+├── skills/
+│   └── <skill-slug>/
+│       ├── SKILL.md
+│       ├── skill.yaml
+│       ├── evidence.json
+│       ├── test-prompts.json
+│       ├── test-results.json
+│       └── test-results.md
+├── evals/
+├── reports/
+└── dist/
+```
 
-### 阶段 1 — 5 个 sub-agent 并行提取
+Markdown 是人类可读层；YAML / JSON 是机器状态、证据和质量合同。两者都必须保留。
 
-**并行**启动 5 个独立提取任务；不支持并行时按同样 prompt 串行执行，产出格式不变。
+## 阶段 0 — 整体理解
 
-| sub-agent | prompt | 产出 |
-|---|---|---|
-| 框架提取器 | `extractors/framework-extractor.md` | 决策框架 / 思维模型 |
-| 原则提取器 | `extractors/principle-extractor.md` | 原则 / 清单 / 规则 |
-| 案例提取器 | `extractors/case-extractor.md` | 作者在原内容中使用过的实例 |
-| 反例提取器 | `extractors/counter-example-extractor.md` | 失败模式 / 不适用场景 |
-| 术语提取器 | `extractors/glossary-extractor.md` | 关键概念词典 |
+1. 读取完整材料；长文本先稳定分块。
+2. 按 `methodology/01-stage0-adler.md` 完成结构、解释、批判和应用分析。
+3. 生成 `BOOK_OVERVIEW.md`。
+4. 向用户展示主旨、结构、术语、局限和建议重点。
+5. 得到用户确认后再进入提取阶段。
 
-每个任务独立读取、独立提取、独立输出到 `books/<slug>/candidates/<type>.md`。长内容按 `methodology/02-stage1-parallel-extract.md` 分块，并保留页码、时间戳、行号或段落位置。
+## 阶段 1 — Map-Reduce 提取
 
-### 阶段 1.5 — 三重验证筛选
+先分块：
 
-读取 `methodology/03-stage1.5-triple-verify.md`，对每个候选执行：
+```bash
+python scripts/cangjie.py chunk books/<slug> \
+  --source-file /path/to/source.txt \
+  --max-chars 12000
+```
 
-- **V1 跨域**：原内容中至少有 2 个相对独立的位置提供支持？
-- **V2 预测力**：能否用它处理原内容未直接回答的新问题？
-- **V3 独特性**：是否超出泛泛常识，值得单独调用？
+再生成确定性计划：
 
-通过的写入 `verified.md`；不通过的写入 `rejected/` 并附原因。
+```bash
+python scripts/cangjie.py plan books/<slug> \
+  --prompt-version extractors-v1 \
+  --model-id <model-id>
+```
 
-**用户轻确认**：展示“通过的 N 个候选 + 淘汰的 M 个”，询问是否捞回、合并或砍掉。确认后再进入阶段 2。
+### Map
 
-### 阶段 2 — RIA++ 构造 skill 与证据链
+每个 chunk 由选定 extractor 处理：
 
-对每个通过单元：
+- framework
+- principle
+- case
+- counter-example
+- glossary
 
-1. 按 `templates/SKILL.md.template` 生成人类可读 `SKILL.md`：
-   - **R**：原文引用与精确位置；
-   - **I**：方法论骨架；
-   - **A1**：原内容中的应用；
-   - **A2**：未来触发场景与相邻 skill 区分；
-   - **E**：可执行步骤、完成标准、判停条件；
-   - **B**：不适用场景、失败模式、作者盲点。
-2. 按 `templates/skill.yaml.template` 生成 `skill.yaml`，把路由、流程、边界和输出合同变成机器字段。
-3. 按 `templates/evidence.json.template` 生成 `evidence.json`。每项必须有稳定 `evidence_id`、位置和 `text_hash`。
-4. 每条主张明确标记：
-   - `direct_quote`
-   - `author_paraphrase`
-   - `inferred_method`
-   - `model_critique`
-   - `external_fact`
-5. `SKILL.md` 与 `skill.yaml` 必须引用相同的证据语义；不得把模型推断伪装为作者原意。
-6. 阶段 2 初始状态必须是：
-   - `status: draft`
-   - `verification.hard_gate_passed: false`
+`scan` 只启用 framework 和 principle；其他模式启用全部五类。
 
-机器格式细则见 `methodology/08-machine-quality-gates.md`。
+Map 输出只记录局部观察、证据定位和候选，不直接决定最终 Skill。
 
-### 阶段 3 — Zettelkasten 链接
+### Reduce
+
+同一 extractor 的全部 Map 输出进行：
+
+- 同义归并；
+- 重复删除；
+- 冲突识别；
+- 证据聚合；
+- 局部遗漏检查。
+
+### Merge 与 Verify
+
+把方法、案例、反例和术语建立关系，再进入候选验证。
+
+任务完成后必须记录 artifact：
+
+```bash
+python scripts/cangjie.py record-task books/<slug> \
+  --task-id <task-id> \
+  --status success \
+  --artifact <relative-artifact-path> \
+  --model-id <model-id>
+```
+
+缓存只有在 source、chunk、prompt、model 和上游依赖的 cache key 均相同时才可复用。
+
+## 阶段 1.5 — 候选验证与确认
+
+按 `methodology/03-stage1.5-triple-verify.md` 执行：
+
+- **V1 证据多样性**：是否有至少两处相对独立证据？
+- **V2 迁移能力**：能否处理原文未直接回答的新问题？
+- **V3 增量价值**：是否超出泛泛常识，值得成为独立 Skill？
+
+通过项写入 `verified.md`；淘汰项写入 `rejected/` 并保留理由。
+
+向用户展示：
+
+- 建议保留的候选；
+- 建议合并的候选；
+- 建议淘汰的候选；
+- 证据强度和风险。
+
+得到轻确认后再构造完整 Skills。
+
+## 阶段 2 — RIA++ 构造与证据链
+
+每个候选同时生成：
+
+- `SKILL.md`：人类可读说明；
+- `skill.yaml`：机器可读路由、工作流、边界和状态；
+- `evidence.json`：来源位置、claim type 和文本哈希。
+
+RIA++：
+
+- **R**：原文与精确位置；
+- **I**：方法论骨架；
+- **A1**：原内容中的应用；
+- **A2**：未来触发条件与相邻 Skill 区分；
+- **E**：执行步骤、完成标准和判停条件；
+- **B**：不适用场景、失败模式和局限。
+
+主张必须标记：
+
+- `direct_quote`
+- `author_paraphrase`
+- `inferred_method`
+- `model_critique`
+- `external_fact`
+
+不得把模型推断或批判写成作者明确观点。
+
+阶段 2 初始状态：
+
+```yaml
+verification:
+  hard_gate_passed: false
+status: draft
+```
+
+详见 `methodology/08-machine-quality-gates.md`。
+
+## 阶段 3 — 链接与路由
 
 按 `methodology/05-stage3-zettelkasten.md`：
 
-1. 建立 skill 之间的依赖、对比和组合关系；
-2. 更新每个 `SKILL.md` 的“相关 skills”；
-3. 更新 `skill.yaml.routing.sibling_priority`，明确相邻 skill 的优先条件；
-4. 生成 `INDEX.md` 和共享 `GLOSSARY.md`。
+1. 建立 depends-on、contrasts-with、composes-with；
+2. 生成 `INDEX.md` 和 `GLOSSARY.md`；
+3. 更新 `skill.yaml.routing.sibling_priority`；
+4. 明确“何时用本 Skill，何时优先用兄弟 Skill”。
 
-### 阶段 4 — 压力测试与机器判卷
+## 阶段 4 — 压力测试
 
 按 `methodology/06-stage4-pressure-test.md`：
 
-1. 按 `templates/test-prompts.json.template` 生成 `test-prompts.json`。
-2. 至少包含：
-   - 3 条 `should_trigger`
-   - 2 条 `should_not_trigger`
-   - 1 条 `edge_case`
-   - 负例中至少 1 条显式填写 `sibling_skill`
-3. 优先用未参与蒸馏的独立 agent 盲测；不给它看 `type`、预期答案和判分标准。
-4. 把**实际执行结果**写入 `test-results.json`，并用 `test-results.md` 解释失败案例和修订过程。
-5. 禁止仅生成测试题却声称“经过测试”；禁止把“待测”写成通过。
-6. 负例零容错；总通过率必须达到 `minimum_pass_rate`。
-7. 通过后更新：
-   - `verification.hard_gate_passed: true`
-   - `status: tested`
-8. 对每个 bundle 运行：
+- 至少 3 条 `should_trigger`；
+- 至少 2 条 `should_not_trigger`；
+- 至少 1 条 `edge_case`；
+- 至少 1 条显式 `sibling_skill` 混淆负例。
 
-```bash
-python scripts/quality_gate.py books/<slug>/<skill-slug>
+测试由未参与蒸馏的独立 Agent 或人工执行。不要把预期答案给评测者。
+
+实际结果写入 `test-results.json`。只生成 `test-prompts.json` 不等于经过测试。
+
+负例零容错。通过后才能设置：
+
+```yaml
+verification:
+  hard_gate_passed: true
+status: tested
 ```
 
-失败必须回炉阶段 2 / 3 / 4，不得只修改测试来迎合现有结果。
+执行门禁：
 
-### 阶段 5 — 质量门禁与交付
+```bash
+python scripts/quality_gate.py books/<slug>/skills/<skill-slug>
+```
 
-1. 按 `templates/DIGEST.md.template` 生成 `DIGEST.md`。
-2. 执行全项目校验：
+## 阶段 4.5 — 真实效果评测
+
+按 `methodology/09-effect-evaluation.md`，使用同一个模型比较：
+
+- `baseline`：不加载目标 Skill；
+- `skill`：加载目标 Skill。
+
+评测拆分为：
+
+- Routing
+- Execution
+- Faithfulness
+
+运行：
+
+```bash
+python scripts/evaluate_skill.py \
+  --cases books/<slug>/evals/cases.jsonl \
+  --results books/<slug>/evals/results.jsonl \
+  --output books/<slug>/reports/evaluation.json \
+  --markdown-output books/<slug>/reports/evaluation.md \
+  --minimum-uplift 0.05 \
+  --fail-on-regression
+```
+
+正式隐藏题不能提交到公开仓库，也不能暴露给生成 Skill 的 Agent。
+
+如果 uplift 接近 0 或为负，考虑修订、合并、降级为模板或删除该 Skill。
+
+## 阶段 5 — 门禁、交付与导出
+
+全项目校验：
 
 ```bash
 python scripts/quality_gate.py --all
+python scripts/cangjie.py validate books/<slug>
 ```
 
-3. 只有通过 Schema、证据引用、哈希、测试执行和负例门槛的 skill 才能安装。
-4. 询问安装位置（用户级或项目级），复制或 symlink **完整 bundle**；宿主只需要 `SKILL.md` 时，也要保留机器文件作为审计产物。
-5. 发布后把 `status` 更新为 `published`，并记录版本变化。
+只有通过证据、测试和效果要求的 Skills 才进入发布候选。
+
+导出示例：
+
+```bash
+python scripts/cangjie.py export books/<slug>/skills/<skill-slug> \
+  --target generic \
+  --output books/<slug>/dist
+```
+
+目标：
+
+- `generic`
+- `claude`
+- `cursor`
+- `codex`
+
+所有导出都是 staging。Codex 导出不会假设产品专用的全局安装路径，而会生成中性目录和安装说明。
+
+## 断点续跑
+
+查看状态：
+
+```bash
+python scripts/cangjie.py status books/<slug>
+```
+
+以 `pipeline-state.json` 为机器状态源。只有 cache key 一致且 artifact 存在的任务才能复用。
+
+不要只根据“文件存在”判断任务完成。
 
 ## 旧产物迁移
 
-对只有 `SKILL.md` / `test-prompts.json` 的旧 skill，可先预览迁移：
+预览：
 
 ```bash
 python scripts/migrate_legacy_skill.py path/to/legacy-skill
 ```
 
-确认后写入保守脚手架：
+写入保守脚手架：
 
 ```bash
 python scripts/migrate_legacy_skill.py path/to/legacy-skill --write
 ```
 
-迁移器会生成 `skill.yaml`、`evidence.json` 和审计报告，但会保持 `hard_gate_passed: false`，且**不会伪造 `test-results.json`**。详细步骤见 `docs/LEGACY-MIGRATION.md`。
+迁移器不会伪造 `test-results.json`，并保持 `hard_gate_passed: false`。
 
-## 质量红线（违反则阻止交付）
+## 质量红线
 
-1. 每个 skill 必须通过 V1 / V2 / V3，并在机器文件中保留验证状态。
-2. 每个 skill 必须同时有 `SKILL.md`、`skill.yaml`、`evidence.json`、`test-prompts.json`、`test-results.json`。
-3. 原文引用必须可定位，并满足引用长度限制。
-4. 作者观点、模型推断、模型批判和外部事实必须分层标记。
-5. `description` 和 `routing` 必须明确何时调用、何时不调用；不能只是“一个关于 X 的 skill”。
-6. 至少 3 正例、2 负例、1 边界例；必须有兄弟 skill 混淆负例。
-7. 所有负例必须通过，汇总数字必须与逐条结果一致。
-8. 没有真实 `test-results.json` 的 skill 不得标注“已测试”。
-9. `python scripts/quality_gate.py --all` 未通过时不得安装或发布。
+1. 没有原文不得蒸馏。
+2. 每个正式 Skill 必须有完整机器 bundle。
+3. 证据必须可定位，哈希必须匹配。
+4. 作者观点、推断、批判和外部事实必须分层。
+5. 路由必须同时说明 include、exclude 和兄弟优先级。
+6. 必须真实执行正例、负例、边界例和兄弟混淆测试。
+7. 所有负例必须通过。
+8. 测试题不能替代测试结果。
+9. `tested` / `published` 必须对应通过的机器结果。
+10. Standard / Audit 发布前必须检查 baseline→Skill uplift。
+11. Audit 模式必须有外部核验和真正私有的隐藏评测。
+12. 质量门禁失败时不得安装或发布。
 
-## 与 nuwa-skill / darwin-skill 的生态定位
+## 生态定位
 
-- **nuwa-skill**：蒸馏人（思维方式 / 表达 DNA）
-- **cangjie-skill**：蒸馏长内容（方法论 / 框架 / 原则）
-- **darwin-skill**：进化任意 skill
+- **nuwa-skill**：蒸馏人的表达和思维特征；
+- **cangjie-skill**：蒸馏长内容中的可执行方法；
+- **darwin-skill**：对已有 Skill 做迭代进化。
 
-`test-prompts.json` 保持 darwin 兼容；`test-results.json` 与证据链补充了发布前的可审计门禁。
-
-## 调用惯例
-
-- **永远先试点 1 份内容**——除非用户明确要求批量。
-- **阶段之间主动汇报进度**——不要静默跑完再一次性倾倒结果。
-- **不凭记忆拆书**——没文本就停下来索取来源。
-- **保留审计轨迹**——`candidates/`、`rejected/`、证据和测试结果都要留。
-- **机器状态优先续跑**——每完成一个阶段更新 `pipeline-state.json`。
-- **不把生成等同于验证**——写出测试题不代表测试已执行。
+`test-prompts.json` 保持 Darwin 兼容；Cangjie 额外提供证据、真实结果、A/B uplift、状态和导出合同。

@@ -1,0 +1,21 @@
+schema_version: '1.0'
+project_id: '{{project-slug}}'
+mode: standard
+pipeline_version: 2.0.0
+source:
+  source_id: '{{stable-source-id}}'
+  title: '{{SOURCE_TITLE}}'
+  author: '{{AUTHOR}}'
+  year: null
+  type: book
+  source_hash: 'sha256:{{64-lowercase-hex}}'
+goal: '{{生成的 Skills 主要用于什么真实工作}}'
+limits:
+  max_candidates: 30
+  max_skills: 5
+requirements:
+  independent_evaluator: true
+  hidden_evaluation: false
+  external_validation: false
+created_at: '{{ISO-8601 timestamp}}'
+updated_at: '{{ISO-8601 timestamp}}'

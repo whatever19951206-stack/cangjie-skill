@@ -7,6 +7,8 @@
   "required": ["run_id", "pipeline_version", "source_hash", "stage", "status", "completed_tasks", "pending_tasks", "artifacts"],
   "properties": {
     "run_id": {"type": "string", "minLength": 4},
+    "project_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "mode": {"enum": ["scan", "standard", "audit"]},
     "pipeline_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
     "source_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "stage": {"type": "string", "minLength": 2},
@@ -14,6 +16,20 @@
     "completed_tasks": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
     "pending_tasks": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
     "artifacts": {"type": "object", "additionalProperties": {"type": "string"}},
+    "task_cache": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["cache_key", "status"],
+        "properties": {
+          "cache_key": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "status": {"enum": ["success", "failed"]},
+          "artifact": {"type": ["string", "null"]},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    },
     "model_runs": {
       "type": "array",
       "items": {
@@ -27,6 +43,7 @@
           "status": {"enum": ["pending", "success", "failed"]}
         }
       }
-    }
+    },
+    "updated_at": {"type": "string", "format": "date-time"}
   }
 }
