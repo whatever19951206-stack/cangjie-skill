@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cangjie-skill.dev/schemas/test-prompts.schema.json",
+  "title": "Cangjie routing test prompts",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["skill", "version", "test_cases", "minimum_pass_rate"],
+  "properties": {
+    "skill": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "source_book": {"type": "string"},
+    "darwin_compatible": {"type": "boolean"},
+    "test_cases": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "type", "prompt", "expected_behavior"],
+        "properties": {
+          "id": {"type": "string", "minLength": 3},
+          "type": {"enum": ["should_trigger", "should_not_trigger", "edge_case"]},
+          "prompt": {"type": "string", "minLength": 4},
+          "expected_behavior": {"type": "string", "minLength": 4},
+          "notes": {"type": "string"},
+          "sibling_skill": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"}
+        }
+      }
+    },
+    "minimum_pass_rate": {"type": "number", "minimum": 0, "maximum": 1},
+    "notes": {"type": "string"}
+  }
+}
