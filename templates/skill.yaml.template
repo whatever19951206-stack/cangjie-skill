@@ -1,0 +1,39 @@
+schema_version: "1.0"
+name: "{{skill-slug}}"
+title: "{{Skill Title}}"
+description: "{{何时调用 + 何时不调用 + 关键触发信号}}"
+source:
+  source_id: "{{stable-source-id}}"
+  title: "{{SOURCE_TITLE}}"
+  author: "{{AUTHOR}}"
+  year: null
+  type: book
+  source_hash: "sha256:{{64位小写十六进制文件哈希}}"
+routing:
+  include:
+    - "{{应调用场景}}"
+  exclude:
+    - "{{不应调用场景}}"
+  signals:
+    - "{{用户语言信号}}"
+  sibling_priority: {}
+workflow:
+  - id: "step_one"
+    action: "{{执行动作}}"
+    completion: "{{完成标准}}"
+boundaries:
+  - "{{停止条件或适用边界}}"
+output_contract:
+  sections:
+    - "{{输出段落名}}"
+evidence_refs:
+  - "ev_001"
+verification:
+  faithfulness: 0.0
+  evidence_diversity: 0.0
+  transferability: 0.0
+  uplift: null
+  separability: 0.0
+  risk_level: low
+  hard_gate_passed: false
+status: draft

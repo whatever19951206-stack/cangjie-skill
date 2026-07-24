@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "run_id": "{{run-id}}",
+  "source_id": "{{source-id}}",
+  "pipeline_version": "1.0.0",
+  "stage": "preflight",
+  "completed_tasks": [],
+  "pending_tasks": ["ingest", "overview", "extract", "verify", "build", "link", "test", "deliver"],
+  "artifacts": {},
+  "model_runs": [],
+  "updated_at": "{{ISO-8601 timestamp}}"
+}

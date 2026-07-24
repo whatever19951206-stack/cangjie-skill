@@ -1,0 +1,22 @@
+{
+  "skill": "{{skill-slug}}",
+  "generated_at": "{{ISO-8601 timestamp}}",
+  "execution_mode": "{{independent-agent | main-agent-fallback | manual}}",
+  "tests": [
+    {
+      "id": "{{must match test-prompts.json case ID}}",
+      "type": "{{should_trigger | should_not_trigger | edge_case}}",
+      "passed": false,
+      "actual_behavior": "{{实际观察到的路由和执行行为}}",
+      "rationale": "{{为什么判定通过或失败；禁止照抄 expected_behavior 伪造结果}}"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "passed": 0,
+    "failed": 1,
+    "pass_rate": 0.0,
+    "all_negative_passed": false,
+    "status": "failed"
+  }
+}

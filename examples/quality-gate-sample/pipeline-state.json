@@ -1,0 +1,30 @@
+{
+  "run_id": "demo_20260724_001",
+  "pipeline_version": "1.0.0",
+  "source_hash": "sha256:85166b54adee68db63401e3dc9055a2922522c286806b1f52d3ee09193ae525f",
+  "stage": "quality-gate",
+  "status": "completed",
+  "completed_tasks": [
+    "ingest",
+    "extract",
+    "verify",
+    "build",
+    "test",
+    "quality-gate"
+  ],
+  "pending_tasks": [],
+  "artifacts": {
+    "skill": "skill.yaml",
+    "evidence": "evidence.json",
+    "test_prompts": "test-prompts.json",
+    "test_results": "test-results.json"
+  },
+  "model_runs": [
+    {
+      "task": "sample-validation",
+      "model": "manual-fixture",
+      "prompt_version": "p0-demo-1",
+      "status": "success"
+    }
+  ]
+}

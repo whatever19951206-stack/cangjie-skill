@@ -1,0 +1,57 @@
+schema_version: '1.0'
+name: failure-preflight
+title: 失败路径预演
+description: 当用户准备启动高代价、难以撤销的行动，却主要关注收益而没有系统检查失败路径时调用；不用于纯事实查询或低成本日常选择。
+source:
+  source_id: quality-gate-demo-v1
+  title: 质量门禁演示材料
+  author: Cangjie Maintainers
+  year: 2026
+  type: document-set
+  source_hash: sha256:85166b54adee68db63401e3dc9055a2922522c286806b1f52d3ee09193ae525f
+routing:
+  include:
+  - 用户正在做高代价或难以撤销的决策
+  - 用户只列出了收益而没有分析失败条件
+  exclude:
+  - 纯事实查询，不需要决策方法
+  - 低成本且容易撤销的日常选择
+  signals:
+  - 哪里可能出事
+  - 最坏会怎样
+  - 有没有致命风险
+  sibling_priority:
+    checklist-review:
+      use_when: 已经有完整方案，只需要逐项复核时
+workflow:
+- id: define_failure
+  action: 定义一个明确且不可接受的失败结果
+  completion: 至少记录一个可观察的失败状态
+- id: map_paths
+  action: 按人员、资源、时间与外部环境列出失败路径
+  completion: 四个维度均被检查并记录
+- id: reverse_actions
+  action: 把主要失败路径转化为预防或验证动作
+  completion: 每条高风险路径至少对应一个动作
+boundaries:
+- 缺少关键上下文且用户拒绝补充时停止
+- 失败代价很低时只做简化检查
+output_contract:
+  sections:
+  - unacceptable_outcome
+  - failure_paths
+  - preventive_actions
+  - residual_risks
+evidence_refs:
+- ev_demo_001
+- ev_demo_002
+- ev_demo_003
+verification:
+  faithfulness: 0.95
+  evidence_diversity: 0.85
+  transferability: 0.82
+  uplift: null
+  separability: 0.9
+  risk_level: low
+  hard_gate_passed: true
+status: tested

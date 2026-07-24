@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "source": {
+    "source_id": "{{stable-source-id}}",
+    "title": "{{SOURCE_TITLE}}",
+    "author": "{{AUTHOR}}",
+    "type": "book",
+    "source_hash": "sha256:{{64位小写十六进制文件哈希}}"
+  },
+  "evidence": [
+    {
+      "evidence_id": "ev_001",
+      "claim_type": "direct_quote",
+      "source_ref": {
+        "source_id": "{{stable-source-id}}",
+        "chapter": "{{章节}}",
+        "printed_page": 1,
+        "paragraph": 1
+      },
+      "text": "{{原文或明确标记的模型推断}}",
+      "text_hash": "sha256:{{text 字段的 SHA-256}}",
+      "supports": "{{该证据支持什么结论}}"
+    }
+  ]
+}

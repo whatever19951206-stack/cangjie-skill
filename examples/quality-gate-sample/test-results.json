@@ -1,0 +1,57 @@
+{
+  "skill": "failure-preflight",
+  "generated_at": "2026-07-24T08:30:00Z",
+  "execution_mode": "manual",
+  "tests": [
+    {
+      "id": "should-trigger-01",
+      "type": "should_trigger",
+      "passed": true,
+      "actual_behavior": "应调用 failure-preflight，并先定义不可接受的失败结果",
+      "rationale": "行为符合预期"
+    },
+    {
+      "id": "should-trigger-02",
+      "type": "should_trigger",
+      "passed": true,
+      "actual_behavior": "应调用 failure-preflight，系统列出失败路径",
+      "rationale": "行为符合预期"
+    },
+    {
+      "id": "should-trigger-03",
+      "type": "should_trigger",
+      "passed": true,
+      "actual_behavior": "应调用 failure-preflight，并转化为预防动作",
+      "rationale": "行为符合预期"
+    },
+    {
+      "id": "should-not-trigger-01",
+      "type": "should_not_trigger",
+      "passed": true,
+      "actual_behavior": "不应调用决策 Skill，应直接回答事实问题",
+      "rationale": "行为符合预期"
+    },
+    {
+      "id": "should-not-trigger-02",
+      "type": "should_not_trigger",
+      "passed": true,
+      "actual_behavior": "不应调用本 Skill，应优先调用 checklist-review",
+      "rationale": "行为符合预期"
+    },
+    {
+      "id": "edge-01",
+      "type": "edge_case",
+      "passed": true,
+      "actual_behavior": "通常不调用，因为选择成本低且容易撤销",
+      "rationale": "行为符合预期"
+    }
+  ],
+  "summary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "pass_rate": 1.0,
+    "all_negative_passed": true,
+    "status": "passed"
+  }
+}

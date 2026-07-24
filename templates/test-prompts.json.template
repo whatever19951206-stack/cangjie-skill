@@ -7,46 +7,47 @@
     {
       "id": "should-trigger-01",
       "type": "should_trigger",
-      "prompt": "{{用户的典型话语 1 — 正面场景}}",
-      "expected_behavior": "应激活 {{skill-slug}}, 并 {{期望的具体动作}}",
-      "notes": "{{为什么这是正面场景}}"
+      "prompt": "{{用户的典型话语 1——不要直接出现 skill 名或明显方法论关键词}}",
+      "expected_behavior": "应激活 {{skill-slug}}，并 {{期望的具体动作}}",
+      "notes": "正面场景：隐式表达真实需求"
     },
     {
       "id": "should-trigger-02",
       "type": "should_trigger",
-      "prompt": "{{用户的典型话语 2}}",
-      "expected_behavior": "...",
-      "notes": "..."
+      "prompt": "{{用户的典型话语 2——同义改写或多轮上下文}}",
+      "expected_behavior": "应激活 {{skill-slug}}，并完整执行核心步骤",
+      "notes": "正面场景：避免只靠关键词命中"
     },
     {
       "id": "should-trigger-03",
       "type": "should_trigger",
-      "prompt": "{{用户的典型话语 3}}",
-      "expected_behavior": "...",
-      "notes": "..."
+      "prompt": "{{用户的典型话语 3——混合多个意图}}",
+      "expected_behavior": "应识别其中需要本 skill 的主要部分",
+      "notes": "正面场景：混合意图"
     },
     {
       "id": "should-not-trigger-01",
       "type": "should_not_trigger",
-      "prompt": "{{诱饵 1 — 看似相关但实际不该调用}}",
-      "expected_behavior": "不应激活本 skill, 因为 {{理由}}",
-      "notes": "诱饵: {{这是什么类型的诱饵}}"
+      "prompt": "{{诱饵 1——看似相关但实际不该调用}}",
+      "expected_behavior": "不应激活本 skill，因为 {{理由}}",
+      "notes": "诱饵：非目标场景"
     },
     {
       "id": "should-not-trigger-02",
       "type": "should_not_trigger",
-      "prompt": "{{诱饵 2 — 应触发同书另一个 skill 的场景}}",
-      "expected_behavior": "不应激活本 skill, 应激活 {{sibling-skill-slug}}",
-      "notes": "跨 skill 混淆诱饵 (硬性要求至少 1 条): 防止同书 skill 互相抢调用"
+      "prompt": "{{诱饵 2——应触发同书另一个 skill 的场景}}",
+      "expected_behavior": "不应激活本 skill，应优先激活 {{sibling-skill-slug}}",
+      "sibling_skill": "{{sibling-skill-slug}}",
+      "notes": "跨 skill 混淆诱饵；sibling_skill 是机器门禁的显式字段"
     },
     {
       "id": "edge-01",
       "type": "edge_case",
       "prompt": "{{边界模糊场景}}",
-      "expected_behavior": "{{期望的合理判断 — 可能是调用, 可能是不调用, 但要说清为什么}}",
-      "notes": "边界: {{为什么这是边界}}"
+      "expected_behavior": "{{合理边界判断；说明调用或不调用的原因}}",
+      "notes": "边界：{{为什么这是边界}}"
     }
   ],
   "minimum_pass_rate": 0.8,
-  "notes": "至少 3 条 should_trigger + 2 条 should_not_trigger + 1 条 edge_case。全部 should_not_trigger 必须通过 (诱饵容错为 0), 且其中至少 1 条是同书兄弟 skill 的场景 (跨 skill 混淆测试)。"
+  "notes": "至少 3 条 should_trigger + 2 条 should_not_trigger + 1 条 edge_case。全部 should_not_trigger 必须通过；其中至少 1 条必须显式填写 sibling_skill。测试题生成后仍需真实执行，并把结果写入 test-results.json。"
 }
