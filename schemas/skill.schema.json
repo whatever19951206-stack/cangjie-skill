@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cangjie Skill",
+  "type": "object",
+  "required": ["name", "description", "routing", "workflow", "evidence_refs"],
+  "properties": {
+    "name": {"type": "string"},
+    "description": {"type": "string"},
+    "routing": {"type": "object"},
+    "workflow": {"type": "array"},
+    "evidence_refs": {"type": "array", "items": {"type": "string"}}
+  }
+}
