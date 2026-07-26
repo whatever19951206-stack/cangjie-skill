@@ -1,0 +1,59 @@
+name: One-off README branding
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/one-off-readme-branding.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Update README branding
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("README.md")
+          text = path.read_text(encoding="utf-8")
+
+          text = text.replace("# Cangjie Skill\n", "# Cangjie Skill Plus\n", 1)
+          text = text.replace(
+              "### 把书、长视频、播客里的方法论，蒸馏成可调用的 AI Skills\n",
+              "### 长内容知识蒸馏 Skill 的工程化增强版\n",
+              1,
+          )
+
+          notice = (
+              "> **本 Skill 基于 [kangarooking/cangjie-skill]"
+              "(https://github.com/kangarooking/cangjie-skill)，"
+              "增加了机器可验证质量门禁、证据链、baseline vs Skill 效果评测、"
+              "`scan / standard / audit` 三档模式、Map-Reduce、断点续跑、CLI 与跨平台导出等功能。**\n\n"
+          )
+          marker = "</div>\n\n"
+          if notice not in text:
+              if marker not in text:
+                  raise SystemExit("README header marker not found")
+              text = text.replace(marker, marker + notice, 1)
+
+          path.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Commit README update
+        run: |
+          if git diff --quiet -- README.md; then
+            echo "README already updated"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "docs: distinguish Cangjie Skill Plus from upstream"
+          git push origin HEAD:main
