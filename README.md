@@ -1,8 +1,8 @@
 <div align="center">
 
-# Cangjie Skill
+# Cangjie Skill Plus
 
-### 把书、长视频、播客里的方法论，蒸馏成可调用的 AI Skills
+### 长内容知识蒸馏 Skill 的工程化增强版
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-f5c542.svg)](./LICENSE)
 [![Method: RIA--TV++](https://img.shields.io/badge/Method-RIA--TV++-2ea44f.svg)](./SKILL.md)
@@ -12,6 +12,8 @@
 **读完、看完、听完之后，带走一套能调用的方法论。**
 
 </div>
+
+> **本 Skill 基于 [kangarooking/cangjie-skill](https://github.com/kangarooking/cangjie-skill)，增加了机器可验证质量门禁、证据链、baseline vs Skill 效果评测、`scan / standard / audit` 三档模式、Map-Reduce、断点续跑、CLI 与跨平台导出等功能。**
 
 ## 为什么做这件事
 
